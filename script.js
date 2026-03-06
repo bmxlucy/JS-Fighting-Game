@@ -5,8 +5,20 @@ canvas.height = 576;
 c.fillRect(0, 0, canvas.width, canvas.height);
 const gravity = 0.7;
 
+//UI Elements
+
+const playerHealthBar = document.querySelector('.player1-health-bar');
+const enemyHealthBar = document.querySelector('.player2-health-bar');
+const playerScore = document.querySelector('.player1-score');
+const enemyScore = document.querySelector('.player2-score');
+playerHealth = 100;
+enemyHealth = 100;
+playerHealthBar.style.width = `${playerHealth}%`;
+enemyHealthBar.style.width = `${enemyHealth}%`;
+
+
 class Sprite {
-  constructor({position, velocity, color}) {
+  constructor({position, velocity, color, offset}) {
     this.position = position;
     this.velocity = velocity;
     this.height = 150;
@@ -14,26 +26,36 @@ class Sprite {
     this.lastKey = '';
     this.color = color;
     this.attackBox = {
-      position: this.position,
+      position: {
+        x: this.position.x,
+        y: this.position.y
+      },
+      offset,
       width: 100,
       height: 50,
     }
+    this.isAttacking = false;
   }
+
   draw() {
     c.fillStyle = this.color;
     c.fillRect(this.position.x, this.position.y, this.width, this.height)
 
     //attack box
-    c.fillStyle = 'green';
-    c.fillRect(
-      this.attackBox.position.x, 
-      this.attackBox.position.y, 
-      this.attackBox.width, 
-      this.attackBox.height
-    )
+    if (this.isAttacking) {
+      c.fillStyle = 'green';
+      c.fillRect(
+          this.attackBox.position.x, 
+        this.attackBox.position.y, 
+        this.attackBox.width, 
+        this.attackBox.height
+      )
+    }
   }
   update() {
     this.draw();
+    this.attackBox.position.x = this.position.x + this.attackBox.offset.x;
+    this.attackBox.position.y = this.position.y - this.attackBox.offset.y;
     this.position.y += this.velocity.y;
     this.position.x += this.velocity.x;
     if (this.position.y + this.height >= canvas.height) {
@@ -42,18 +64,26 @@ class Sprite {
       this.velocity.y += gravity;
     }
   }
+  attack() {
+    this.isAttacking = true;
+    setTimeout(() => {
+      this.isAttacking = false;
+    }, 100)
+  }
 }
 
 const player = new Sprite({
   position: { x: 0, y: 0 },
   velocity: { x: 0, y: 0 },
-  color: 'blue'
+  color: 'blue',
+  offset: { x: 0, y: 0 }
 });
 
 const enemy = new Sprite({
   position: { x: 400, y: 100},
   velocity: { x: 0, y: 0 },
-  color: 'red'
+  color: 'red',
+  offset: { x: -50, y: 0 }
 });
 
 player.draw();
@@ -84,17 +114,30 @@ function animate() {
     enemy.velocity.x = 0;
   }
 
-  //detect collision
+  //player attack boxdetect collision
   if (
-    player.attackBox.position.x + player.attackBox.width >= enemy.position.x &&
-    enemy.position.x + enemy.width >= player.attackBox.position.x &&
-    player.attackBox.position.y + player.attackBox.height >= enemy.position.y &&
-    enemy.position.y + enemy.height >= player.attackBox.position.y
+    rectangleCollision({rectangle1: player, rectangle2: enemy}) &&
+    player.isAttacking
   ) 
   {
-    console.log('hit');
+    player.isAttacking = false;
+    console.log('enemy hit');
+    enemyHealth -= 10;
+    enemyHealthBar.style.width = `${enemyHealth}%`;
+  }
+  //enemy attack box detect collision
+  if (
+    rectangleCollision({rectangle1: enemy, rectangle2: player}) &&
+    enemy.isAttacking
+  ) 
+  {
+    enemy.isAttacking = false;
+    console.log('player hit');
+    playerHealth -= 10;
+    playerHealthBar.style.width = `${playerHealth}%`;
   }
 }
+
 
 
 const keys = {
@@ -118,10 +161,22 @@ const keys = {
   }
 }
 
+function rectangleCollision({ rectangle1, rectangle2 }) {
+  return (
+    rectangle1.attackBox.position.x + rectangle1.attackBox.width >= rectangle2.position.x &&
+    rectangle2.position.x + rectangle2.width >= rectangle1.attackBox.position.x &&
+    rectangle1.attackBox.position.y + rectangle1.attackBox.height >= rectangle2.position.y &&
+    rectangle2.position.y + rectangle2.height >= rectangle1.attackBox.position.y
+  )
+}
+
 animate();
 window.addEventListener('keydown', (event) => {
   switch (event.key) {
     //Player keys
+    case ' ':
+      player.attack();
+      break
     case 'd':
       keys.d.pressed = true
       player.lastKey = 'd';
@@ -135,6 +190,9 @@ window.addEventListener('keydown', (event) => {
       break
 
     //Enemy keys
+    case 'ArrowDown':
+      enemy.attack();
+      break
     case 'ArrowRight':
       keys.ArrowRight.pressed = true
       enemy.lastKey = 'ArrowRight';
@@ -166,5 +224,6 @@ window.addEventListener('keyup', (event) => {
       keys.ArrowLeft.pressed = false
       break
   }
-  console.log(event.key);
 })
+
+
