@@ -9,12 +9,35 @@ const gravity = 0.7;
 
 const playerHealthBar = document.querySelector('.player1-health-bar');
 const enemyHealthBar = document.querySelector('.player2-health-bar');
-const playerScore = document.querySelector('.player1-score');
-const enemyScore = document.querySelector('.player2-score');
+const playerScoreElement = document.querySelector('.player2-score');
+const enemyScoreElement = document.querySelector('.player1-score');
 playerHealth = 100;
 enemyHealth = 100;
-playerHealthBar.style.width = `${playerHealth}%`;
-enemyHealthBar.style.width = `${enemyHealth}%`;
+playerScore = 0;
+enemyScore = 0;
+playerScoreElement.textContent = playerScore;
+enemyScoreElement.textContent = enemyScore;
+playerIsWon = false;
+enemyIsWon = false;
+
+
+function won() {
+  if (playerIsWon) {
+    alert('Player Won');
+    playerScore = 0;
+    enemyScore = 0; 
+    playerScoreElement.textContent = playerScore;
+    enemyScoreElement.textContent = enemyScore;
+    playerIsWon = false;
+  } else if (enemyIsWon) {
+    alert('Enemy Won');
+    enemyScore = 0; 
+    playerScore = 0;
+    playerScoreElement.textContent = playerScore;
+    enemyScoreElement.textContent = enemyScore;
+    enemyIsWon = false;
+  }
+}
 
 
 class Sprite {
@@ -52,12 +75,16 @@ class Sprite {
       )
     }
   }
+
+
   update() {
     this.draw();
     this.attackBox.position.x = this.position.x + this.attackBox.offset.x;
     this.attackBox.position.y = this.position.y - this.attackBox.offset.y;
     this.position.y += this.velocity.y;
     this.position.x += this.velocity.x;
+    enemyHealthBar.style.width = `${enemyHealth}%`;
+    playerHealthBar.style.width = `${playerHealth}%`;
     if (this.position.y + this.height >= canvas.height) {
       this.velocity.y = 0;
     } else {
@@ -123,7 +150,16 @@ function animate() {
     player.isAttacking = false;
     console.log('enemy hit');
     enemyHealth -= 10;
-    enemyHealthBar.style.width = `${enemyHealth}%`;
+    if (enemyHealth <= 0) {
+      enemyScore++;
+      enemyScoreElement.textContent = enemyScore;
+      if (enemyScore >= 3) {
+        playerIsWon = true;
+        won();
+      }
+      console.log('Enemy Score: ', enemyScore);
+      enemyHealth = 100;
+    }
   }
   //enemy attack box detect collision
   if (
@@ -134,7 +170,16 @@ function animate() {
     enemy.isAttacking = false;
     console.log('player hit');
     playerHealth -= 10;
-    playerHealthBar.style.width = `${playerHealth}%`;
+    if (playerHealth <= 0) {
+      playerScore++;
+      playerScoreElement.textContent = playerScore;
+      if (playerScore >= 3) {
+        enemyIsWon = true;
+        won();
+      }
+      console.log('Player Score: ', playerScore);
+      playerHealth = 100;
+    }
   }
 }
 
