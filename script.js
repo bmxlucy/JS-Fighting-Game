@@ -24,19 +24,17 @@ enemyIsWon = false;
 function won() {
   if (playerIsWon) {
     alert('Player Won');
-    playerScore = 0;
-    enemyScore = 0; 
-    playerScoreElement.textContent = playerScore;
-    enemyScoreElement.textContent = enemyScore;
     playerIsWon = false;
   } else if (enemyIsWon) {
     alert('Enemy Won');
-    enemyScore = 0; 
-    playerScore = 0;
-    playerScoreElement.textContent = playerScore;
-    enemyScoreElement.textContent = enemyScore;
     enemyIsWon = false;
   }
+  playerScore = 0;
+  enemyScore = 0;
+  playerHealth = 100;
+  enemyHealth = 100;
+  playerScoreElement.textContent = playerScore;
+  enemyScoreElement.textContent = enemyScore;
 }
 
 
@@ -68,7 +66,7 @@ class Sprite {
     if (this.isAttacking) {
       c.fillStyle = 'green';
       c.fillRect(
-          this.attackBox.position.x, 
+        this.attackBox.position.x, 
         this.attackBox.position.y, 
         this.attackBox.width, 
         this.attackBox.height
@@ -86,6 +84,7 @@ class Sprite {
     enemyHealthBar.style.width = `${enemyHealth}%`;
     playerHealthBar.style.width = `${playerHealth}%`;
     if (this.position.y + this.height >= canvas.height) {
+      this.position.y = canvas.height - this.height;
       this.velocity.y = 0;
     } else {
       this.velocity.y += gravity;
@@ -124,18 +123,22 @@ function animate() {
   enemy.update();
   //Player movement
   if (keys.a.pressed && player.lastKey === 'a') {
+    player.attackBox.offset.x = -player.attackBox.width +50;
     player.velocity.x = -5;
   } 
   else if (keys.d.pressed && player.lastKey === 'd') {
+    player.attackBox.offset.x = 0;
     player.velocity.x = 5;
   } else {
     player.velocity.x = 0;
   }
   //Enemy movement
   if (keys.ArrowRight.pressed && enemy.lastKey === 'ArrowRight') {
+    enemy.attackBox.offset.x = 0;
     enemy.velocity.x = 5;
   } 
   else if (keys.ArrowLeft.pressed && enemy.lastKey === 'ArrowLeft') {
+    enemy.attackBox.offset.x = -enemy.attackBox.width +50;
     enemy.velocity.x = -5;
   } else {
     enemy.velocity.x = 0;
