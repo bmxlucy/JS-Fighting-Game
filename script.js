@@ -1,7 +1,7 @@
 const canvas = document.getElementById('canvas');
 const c = canvas.getContext('2d');
-canvas.width = 1024;
-canvas.height = 576;
+canvas.width = 1440;
+canvas.height = 980;
 c.fillRect(0, 0, canvas.width, canvas.height);
 const gravity = 0.7;
 
@@ -99,14 +99,14 @@ class Sprite {
 }
 
 const player = new Sprite({
-  position: { x: 0, y: 0 },
+  position: { x: 0+100, y: 0 },
   velocity: { x: 0, y: 0 },
   color: 'blue',
   offset: { x: 0, y: 0 }
 });
 
 const enemy = new Sprite({
-  position: { x: 400, y: 100},
+  position: { x: 1440-150, y: 100},
   velocity: { x: 0, y: 0 },
   color: 'red',
   offset: { x: -50, y: 0 }
@@ -234,7 +234,9 @@ window.addEventListener('keydown', (event) => {
       player.lastKey = 'a';
       break
     case 'w':
-      player.velocity.y = -20
+      if (player.velocity.y === 0) {
+        player.velocity.y = -20
+      }
       break
 
     //Enemy keys
@@ -250,7 +252,9 @@ window.addEventListener('keydown', (event) => {
       enemy.lastKey = 'ArrowLeft';
       break
     case 'ArrowUp':
-      enemy.velocity.y = -20
+      if (enemy.velocity.y === 0) {
+        enemy.velocity.y = -20
+      }
       break
   }
 })
