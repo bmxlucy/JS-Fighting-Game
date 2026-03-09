@@ -12,7 +12,8 @@ const enemyHealthBar = document.querySelector('.player2-health-bar');
 const playerScoreElement = document.querySelector('.player2-score');
 const enemyScoreElement = document.querySelector('.player1-score');
 const currentTimeElement = document.querySelector('.timer');
-currentTime = 180;
+const initialTime = 10;
+currentTime = initialTime;
 playerHealth = 100;
 enemyHealth = 100;
 playerScore = 0;
@@ -24,17 +25,62 @@ playerIsWon = false;
 enemyIsWon = false;
 
 //Timer
-const runEverySecond = setInterval(() => {
-  currentTime--;
+let runEverySecond;
+function startTimer() {
+  runEverySecond = setInterval(() => {
+    currentTime--;
+    currentTimeElement.innerText = currentTime;
+    
+    if (currentTime <= 0) {
+      if (playerHealth < enemyHealth) {
+        playerScore++;
+        playerScoreElement.textContent = playerScore;
+        reset();
+      } else if (enemyHealth < playerHealth) {
+        enemyScore++;
+        enemyScoreElement.textContent = enemyScore;
+        reset();
+      } else {
+        setTimeout(() => {
+          console.log('Tie');
+          reset();
+        }, 1000);
+        
+      }
+      clearInterval(runEverySecond);
+    }
+  }, 1000);
+}
+
+startTimer();
+
+function reset() {
+  playerHealth = 100;
+  enemyHealth = 100;
+  currentTime = initialTime;
+  player.position.x = 0 + player.width + 50;
+  player.position.y = canvas.height - player.height;
+  enemy.position.x = canvas.width - enemy.width - 100;
+  enemy.position.y = canvas.height - enemy.height;
+  player.velocity.x = 0;
+  enemy.velocity.x = 0;
+  player.isAttacking = false;
+  enemy.isAttacking = false;
+  player.attackBox.offset.x = 0;
+  enemy.attackBox.offset.x = 0;
+  player.lastKey = '';
+  enemy.lastKey = '';
   currentTimeElement.innerText = currentTime;
-  
-  if (currentTime <= 0) {
+  if (playerScore < 3 && enemyScore < 3)  {
+    startTimer();
+  } else {
     clearInterval(runEverySecond);
   }
-}, 1000);
+}
 
 
 function won() {
+  clearInterval(runEverySecond);
   if (playerIsWon) {
     alert('Player Won');
     playerIsWon = false;
@@ -172,6 +218,7 @@ function animate() {
     if (enemyHealth <= 0) {
       enemyScore++;
       enemyScoreElement.textContent = enemyScore;
+      reset();
       if (enemyScore >= 3) {
         playerIsWon = true;
         won();
@@ -192,6 +239,7 @@ function animate() {
     if (playerHealth <= 0) {
       playerScore++;
       playerScoreElement.textContent = playerScore;
+      reset();
       if (playerScore >= 3) {
         enemyIsWon = true;
         won();
