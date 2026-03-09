@@ -11,14 +11,27 @@ const playerHealthBar = document.querySelector('.player1-health-bar');
 const enemyHealthBar = document.querySelector('.player2-health-bar');
 const playerScoreElement = document.querySelector('.player2-score');
 const enemyScoreElement = document.querySelector('.player1-score');
+const currentTimeElement = document.querySelector('.timer');
+currentTime = 180;
 playerHealth = 100;
 enemyHealth = 100;
 playerScore = 0;
 enemyScore = 0;
 playerScoreElement.textContent = playerScore;
 enemyScoreElement.textContent = enemyScore;
+currentTimeElement.innerText = currentTime;
 playerIsWon = false;
 enemyIsWon = false;
+
+//Timer
+const runEverySecond = setInterval(() => {
+  currentTime--;
+  currentTimeElement.innerText = currentTime;
+  
+  if (currentTime <= 0) {
+    clearInterval(runEverySecond);
+  }
+}, 1000);
 
 
 function won() {
@@ -74,7 +87,6 @@ class Sprite {
     }
   }
 
-
   update() {
     this.draw();
     this.attackBox.position.x = this.position.x + this.attackBox.offset.x;
@@ -88,6 +100,10 @@ class Sprite {
       this.velocity.y = 0;
     } else {
       this.velocity.y += gravity;
+    }
+    if (this.position.x + this.width >= canvas.width || this.position.x <= 0) {
+      this.position.x = Math.max(0, Math.min(canvas.width - this.width, this.position.x));
+      this.velocity.x = 0;
     }
   }
   attack() {
@@ -123,7 +139,7 @@ function animate() {
   enemy.update();
   //Player movement
   if (keys.a.pressed && player.lastKey === 'a') {
-    player.attackBox.offset.x = -player.attackBox.width +50;
+    player.attackBox.offset.x = -player.attackBox.width + player.width;
     player.velocity.x = -5;
   } 
   else if (keys.d.pressed && player.lastKey === 'd') {
@@ -138,7 +154,7 @@ function animate() {
     enemy.velocity.x = 5;
   } 
   else if (keys.ArrowLeft.pressed && enemy.lastKey === 'ArrowLeft') {
-    enemy.attackBox.offset.x = -enemy.attackBox.width +50;
+    enemy.attackBox.offset.x = -enemy.attackBox.width + enemy.width;
     enemy.velocity.x = -5;
   } else {
     enemy.velocity.x = 0;
