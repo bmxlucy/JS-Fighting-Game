@@ -173,7 +173,7 @@ class Sprite {
 }
 
 const roketPack = new Sprite({
-  position: { x: Math.random() * (canvas.width - 30), y: canvas.height - 70 },
+  position: { x: Math.random() * (canvas.width - 60), y: canvas.height - 70 },
   velocity: { x: 0, y: 0 },
   color: 'yellow',
   height: 70,
@@ -182,7 +182,7 @@ const roketPack = new Sprite({
 roketPack.visible = false;
 
 const healBox = new Sprite({
-  position: { x: Math.random() * (canvas.width - 25), y: canvas.height - 50 },
+  position: { x: Math.random() * (canvas.width - 50), y: canvas.height - 50 },
   velocity: { x: 0, y: 0 },
   color: 'green',
   height: 50,
@@ -249,20 +249,25 @@ function animate() {
   }
 
 
-  if (roketPackCollision({ rectangle1: player, rectangle2: roketPack })) {
+  if (roketPack.visible && roketPackCollision({ rectangle1: player, rectangle2: roketPack })) {
     console.log('roket pack hit by Player');
     roketPack.visible = false;
     roketPackActive = true;
   }
+  if (roketPack.visible && roketPackCollision({ rectangle1: enemy, rectangle2: roketPack })) {
+    console.log('roket pack hit by Enemy');
+    roketPack.visible = false;
+    roketPackActive = true;
+  }
 
-  if (healBoxCollision({ rectangle1: player, rectangle2: healBox })) {
+  if (healBox.visible && healBoxCollision({ rectangle1: player, rectangle2: healBox })) {
     console.log('heal box hit by Player');
-    playerHealth += 35;
+    playerHealth = Math.min(playerHealth + 35, 100);
     healBox.visible = false;
   }
-  if (healBoxCollision({ rectangle1: enemy, rectangle2: healBox })) {
+  if (healBox.visible && healBoxCollision({ rectangle1: enemy, rectangle2: healBox })) {
     console.log('heal box hit by Enemy');
-    enemyHealth += 35;
+    enemyHealth = Math.min(enemyHealth + 35, 100);
     healBox.visible = false;
   }
   
