@@ -1,18 +1,16 @@
 const canvas = document.getElementById('canvas');
 const c = canvas.getContext('2d');
+const gravity = 0.7;
 canvas.width = 1440;
 canvas.height = 980;
 c.fillRect(0, 0, canvas.width, canvas.height);
-const gravity = 0.7;
-
 //UI Elements
-
 const playerHealthBar = document.querySelector('.player1-health-bar');
 const enemyHealthBar = document.querySelector('.player2-health-bar');
 const playerScoreElement = document.querySelector('.player2-score');
 const enemyScoreElement = document.querySelector('.player1-score');
 const currentTimeElement = document.querySelector('.timer');
-const initialTime = 10;
+const initialTime = 80;
 currentTime = initialTime;
 playerHealth = 100;
 enemyHealth = 100;
@@ -90,13 +88,15 @@ function won() {
     alert('Enemy Won');
     enemyIsWon = false;
   }
-  playerScore = 0;
-  enemyScore = 0;
-  playerHealth = 100;
-  enemyHealth = 100;
   playerScoreElement.textContent = playerScore;
   enemyScoreElement.textContent = enemyScore;
   reset();
+}
+
+function critChance() {
+  let crit = Math.random() < 0.2 ? (1.1 + Math.random() * 1.4) : 1;
+  console.log('dmg ', crit);
+  return crit;
 }
 
 
@@ -217,7 +217,7 @@ function animate() {
   {
     player.isAttacking = false;
     console.log('enemy hit');
-    enemyHealth -= 10;
+    enemyHealth -= 10 * critChance();
     if (enemyHealth <= 0) {
       enemyScore++;
       enemyScoreElement.textContent = enemyScore;
@@ -238,7 +238,7 @@ function animate() {
   {
     enemy.isAttacking = false;
     console.log('player hit');
-    playerHealth -= 10;
+    playerHealth -= 10 * critChance();
     if (playerHealth <= 0) {
       playerScore++;
       playerScoreElement.textContent = playerScore;
