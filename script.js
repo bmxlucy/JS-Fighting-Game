@@ -21,6 +21,7 @@ enemyScoreElement.textContent = enemyScore;
 currentTimeElement.innerText = currentTime;
 playerIsWon = false;
 enemyIsWon = false;
+roketPackActive = false;
 
 //Timer
 let runEverySecond;
@@ -32,6 +33,10 @@ function startTimer() {
     if ( Math.random() < 0.1 && healBox.visible === false) {
       healBox.position.x = Math.random() * (canvas.width - 25);
       healBox.visible = true;
+    }
+    if ( Math.random() < 0.1 && roketPack.visible === false) {
+      roketPack.position.x = Math.random() * (canvas.width - 30);
+      roketPack.visible = true;
     }
     if (currentTime <= 0) {
       clearInterval(runEverySecond);
@@ -166,6 +171,16 @@ class Sprite {
     }, 100)
   }
 }
+
+const roketPack = new Sprite({
+  position: { x: Math.random() * (canvas.width - 30), y: canvas.height - 70 },
+  velocity: { x: 0, y: 0 },
+  color: 'yellow',
+  height: 70,
+  width: 60
+});
+roketPack.visible = false;
+
 const healBox = new Sprite({
   position: { x: Math.random() * (canvas.width - 25), y: canvas.height - 50 },
   velocity: { x: 0, y: 0 },
@@ -196,6 +211,7 @@ const enemy = new Sprite({
 healBox.draw();
 player.draw();
 enemy.draw();
+roketPack.draw();
 
 function animate() {
   window.requestAnimationFrame(animate);
@@ -203,6 +219,9 @@ function animate() {
   c.fillRect(0, 0, canvas.width, canvas.height);
   player.update();
   enemy.update();
+  if (roketPack.visible) {
+    roketPack.draw();
+  }
   if (healBox.visible) {
     healBox.draw();
   }
@@ -227,6 +246,13 @@ function animate() {
     enemy.velocity.x = -5;
   } else {
     enemy.velocity.x = 0;
+  }
+
+
+  if (roketPackCollision({ rectangle1: player, rectangle2: roketPack })) {
+    console.log('roket pack hit by Player');
+    roketPack.visible = false;
+    roketPackActive = true;
   }
 
   if (healBoxCollision({ rectangle1: player, rectangle2: healBox })) {
@@ -315,6 +341,15 @@ function rectangleCollision({ rectangle1, rectangle2 }) {
   )
 }
 
+function roketPackCollision({ rectangle1, rectangle2 }) {
+  return (
+    rectangle1.position.x + rectangle1.width >= rectangle2.position.x &&
+    rectangle2.position.x + rectangle2.width >= rectangle1.position.x &&
+    rectangle1.position.y + rectangle1.height >= rectangle2.position.y &&
+    rectangle2.position.y + rectangle2.height >= rectangle1.position.y
+  )
+}
+
 function healBoxCollision({ rectangle1, rectangle2 }) {
   return (
     rectangle1.position.x + rectangle1.width >= rectangle2.position.x &&
@@ -342,6 +377,9 @@ window.addEventListener('keydown', (event) => {
     case 'w':
       if (player.velocity.y === 0) {
         player.velocity.y = -20
+      } else if (roketPackActive) {
+        player.velocity.y = -25;
+        roketPackActive = false;
       }
       break
 
@@ -360,6 +398,9 @@ window.addEventListener('keydown', (event) => {
     case 'ArrowUp':
       if (enemy.velocity.y === 0) {
         enemy.velocity.y = -20
+      } else if (roketPackActive) {
+        enemy.velocity.y = -25;
+        roketPackActive = false;   
       }
       break
   }
