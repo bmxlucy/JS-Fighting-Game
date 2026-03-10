@@ -29,6 +29,10 @@ function startTimer() {
   runEverySecond = setInterval(() => {
     currentTime--;
     currentTimeElement.innerText = currentTime;
+    if ( Math.random() < 0.1 && healBox.visible === false) {
+      healBox.position.x = Math.random() * (canvas.width - 25);
+      healBox.visible = true;
+    }
     if (currentTime <= 0) {
       clearInterval(runEverySecond);
       if (playerHealth < enemyHealth) {
@@ -101,11 +105,11 @@ function critChance() {
 
 
 class Sprite {
-  constructor({position, velocity, color, offset}) {
+  constructor({position, velocity, color, offset, height, width  }) {
     this.position = position;
     this.velocity = velocity;
-    this.height = 150;
-    this.width = 50;
+    this.height = height;
+    this.width = width;
     this.lastKey = '';
     this.color = color;
     this.attackBox = {
@@ -162,21 +166,34 @@ class Sprite {
     }, 100)
   }
 }
+const healBox = new Sprite({
+  position: { x: Math.random() * (canvas.width - 25), y: canvas.height - 50 },
+  velocity: { x: 0, y: 0 },
+  color: 'green',
+  height: 50,
+  width: 50,
+});
+healBox.visible = false;
 
 const player = new Sprite({
   position: { x: 0+100, y: 0 },
   velocity: { x: 0, y: 0 },
   color: 'blue',
-  offset: { x: 0, y: 0 }
+  offset: { x: 0, y: 0 },
+  height: 150,
+  width: 50,
 });
 
 const enemy = new Sprite({
   position: { x: 1440-150, y: 100},
   velocity: { x: 0, y: 0 },
   color: 'red',
-  offset: { x: -50, y: 0 }
+  offset: { x: -50, y: 0 },
+  height: 150,
+  width: 50,
 });
 
+healBox.draw();
 player.draw();
 enemy.draw();
 
@@ -186,6 +203,9 @@ function animate() {
   c.fillRect(0, 0, canvas.width, canvas.height);
   player.update();
   enemy.update();
+  if (healBox.visible) {
+    healBox.draw();
+  }
   //Player movement
   if (keys.a.pressed && player.lastKey === 'a') {
     player.attackBox.offset.x = -player.attackBox.width + player.width;
@@ -208,6 +228,18 @@ function animate() {
   } else {
     enemy.velocity.x = 0;
   }
+
+  if (healBoxCollision({ rectangle1: player, rectangle2: healBox })) {
+    console.log('heal box hit by Player');
+    playerHealth += 35;
+    healBox.visible = false;
+  }
+  if (healBoxCollision({ rectangle1: enemy, rectangle2: healBox })) {
+    console.log('heal box hit by Enemy');
+    enemyHealth += 35;
+    healBox.visible = false;
+  }
+  
 
   //player attack boxdetect collision
   if (
@@ -253,7 +285,6 @@ function animate() {
 }
 
 
-
 const keys = {
   a: {
     pressed: false
@@ -281,6 +312,15 @@ function rectangleCollision({ rectangle1, rectangle2 }) {
     rectangle2.position.x + rectangle2.width >= rectangle1.attackBox.position.x &&
     rectangle1.attackBox.position.y + rectangle1.attackBox.height >= rectangle2.position.y &&
     rectangle2.position.y + rectangle2.height >= rectangle1.attackBox.position.y
+  )
+}
+
+function healBoxCollision({ rectangle1, rectangle2 }) {
+  return (
+    rectangle1.position.x + rectangle1.width >= rectangle2.position.x &&
+    rectangle2.position.x + rectangle2.width >= rectangle1.position.x &&
+    rectangle1.position.y + rectangle1.height >= rectangle2.position.y &&
+    rectangle2.position.y + rectangle2.height >= rectangle1.position.y
   )
 }
 
