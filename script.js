@@ -27,11 +27,12 @@ enemyIsWon = false;
 //Timer
 let runEverySecond;
 function startTimer() {
+  currentTime = initialTime;
   runEverySecond = setInterval(() => {
     currentTime--;
     currentTimeElement.innerText = currentTime;
-    
     if (currentTime <= 0) {
+      clearInterval(runEverySecond);
       if (playerHealth < enemyHealth) {
         playerScore++;
         playerScoreElement.textContent = playerScore;
@@ -55,6 +56,7 @@ function startTimer() {
 startTimer();
 
 function reset() {
+  clearInterval(runEverySecond);
   playerHealth = 100;
   enemyHealth = 100;
   currentTime = initialTime;
@@ -72,7 +74,7 @@ function reset() {
   enemy.lastKey = '';
   currentTimeElement.innerText = currentTime;
   if (playerScore < 3 && enemyScore < 3)  {
-    startTimer();
+    setTimeout(() => startTimer(), 0);  // Defer to next event loop tick
   } else {
     clearInterval(runEverySecond);
   }
@@ -94,6 +96,7 @@ function won() {
   enemyHealth = 100;
   playerScoreElement.textContent = playerScore;
   enemyScoreElement.textContent = enemyScore;
+  reset();
 }
 
 
@@ -222,9 +225,9 @@ function animate() {
       if (enemyScore >= 3) {
         playerIsWon = true;
         won();
-      }
+      } 
       console.log('Enemy Score: ', enemyScore);
-      enemyHealth = 100;
+      
     }
   }
   //enemy attack box detect collision
@@ -245,7 +248,6 @@ function animate() {
         won();
       }
       console.log('Player Score: ', playerScore);
-      playerHealth = 100;
     }
   }
 }
