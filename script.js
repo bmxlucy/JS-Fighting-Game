@@ -170,6 +170,9 @@ class Sprite {
       this.isAttacking = false;
     }, 100)
   }
+  block() {
+    this.isBlocking = true;
+  }
 }
 
 const roketPack = new Sprite({
@@ -280,7 +283,15 @@ function animate() {
   {
     player.isAttacking = false;
     console.log('enemy hit');
-    enemyHealth -= 10 * critChance();
+    let damage = 10 * critChance();
+    if (enemy.isBlocking) {
+      damage *= 0.1;
+      console.log('enemy is blocking, damage reduced to ', damage);
+    } else {
+      enemyHealth -= damage;
+      console.log('enemy hit for ', damage, 'damage');
+    }
+    
     if (enemyHealth <= 0) {
       enemyScore++;
       enemyScoreElement.textContent = enemyScore;
@@ -301,7 +312,15 @@ function animate() {
   {
     enemy.isAttacking = false;
     console.log('player hit');
-    playerHealth -= 10 * critChance();
+    let damage = 10 * critChance();
+    if (player.isBlocking) {
+      damage *= 0.1;
+      console.log('player is blocking, damage reduced to ', damage);
+    } else {
+      playerHealth -= damage;
+      console.log('player hit for ', damage, 'damage');
+    }
+    playerHealth -= damage;
     if (playerHealth <= 0) {
       playerScore++;
       playerScoreElement.textContent = playerScore;
@@ -326,6 +345,10 @@ const keys = {
   w: {
     pressed: false
   },
+  s: {
+    pressed: false
+  },
+
   ArrowRight: {
     pressed: false
   },
@@ -333,6 +356,9 @@ const keys = {
     pressed: false
   },
   ArrowUp: {
+    pressed: false
+  },
+  slash: {
     pressed: false
   }
 }
@@ -368,6 +394,10 @@ animate();
 window.addEventListener('keydown', (event) => {
   switch (event.key) {
     //Player keys
+    case 's':
+      player.block();
+      console.log('player is blocking');
+      break
     case ' ':
       player.attack();
       break
@@ -389,8 +419,12 @@ window.addEventListener('keydown', (event) => {
       break
 
     //Enemy keys
-    case 'ArrowDown':
+    case '/':
       enemy.attack();
+      break
+    case 'ArrowDown':
+      enemy.block();
+      console.log('enemy is blocking');
       break
     case 'ArrowRight':
       keys.ArrowRight.pressed = true
@@ -413,6 +447,10 @@ window.addEventListener('keydown', (event) => {
 window.addEventListener('keyup', (event) => {
   switch (event.key) {
     //Player keys
+    case 's':
+      player.isBlocking = false;
+      console.log('player is not blocking');
+      break
     case 'd':
       keys.d.pressed = false
       break
@@ -421,6 +459,10 @@ window.addEventListener('keyup', (event) => {
       break
 
     //Enemy keys
+    case 'ArrowDown':
+      enemy.isBlocking = false;
+      console.log('enemy is not blocking');
+      break
     case 'ArrowRight':
       keys.ArrowRight.pressed = false
       break
