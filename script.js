@@ -3,7 +3,57 @@ const c = canvas.getContext('2d');
 const gravity = 0.7;
 canvas.width = 1440;
 canvas.height = 980;
-c.fillRect(0, 0, canvas.width, canvas.height);
+const img = new Image();
+img.src = 'img/bg.png';
+img.onload = () => {
+  drawBackground();
+};
+function drawBackground() {
+  c.clearRect(0, 0, canvas.width, canvas.height);
+  c.fillStyle = 'black';
+  c.fillRect(0, 0, canvas.width, canvas.height);
+  
+  drawCoverFromSprite( 
+    img,
+    0, 0, 1024, 400,
+    0, 0, canvas.width, canvas.height
+  );
+
+  // 2) midground ruins
+    drawCoverFromSprite(
+      img,
+      1024, 0, 1024, 400,
+      300, 200, canvas.width, 800
+    );
+
+  // 3) fog
+  drawCoverFromSprite(
+    img,
+    0, 680, 1024, 160,
+    0, 400, canvas.width, 400
+  );
+}
+function drawCoverFromSprite(
+  image,
+  sx, sy, sw, sh,
+  dx, dy, dw, dh
+) {
+  const scale = Math.max(dw / sw, dh / sh);
+
+  const newWidth = sw * scale;
+  const newHeight = sh * scale;
+
+  const offsetX = dx + (dw - newWidth) / 2;
+  const offsetY = dy + (dh - newHeight) / 2;
+
+  c.drawImage(
+    image,
+    sx, sy, sw, sh,
+    offsetX, offsetY, newWidth, newHeight
+  );
+}
+
+
 //UI Elements
 const playerHealthBar = document.querySelector('.player1-health-bar');
 const enemyHealthBar = document.querySelector('.player2-health-bar');
@@ -218,8 +268,12 @@ roketPack.draw();
 
 function animate() {
   window.requestAnimationFrame(animate);
-  c.fillStyle = 'black';
-  c.fillRect(0, 0, canvas.width, canvas.height);
+  if (img.complete && img.naturalHeight !== 0) {
+    drawBackground();
+  } else {
+    c.fillStyle = 'black';
+    c.fillRect(0, 0, canvas.width, canvas.height);
+  }
   player.update();
   enemy.update();
   if (roketPack.visible) {
