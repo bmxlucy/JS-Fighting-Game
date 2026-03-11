@@ -1,564 +1,567 @@
+/* =============================================================================
+   FIGHTING GAME - Main Script
+   ============================================================================= */
+
+// -----------------------------------------------------------------------------
+// CANVAS SETUP
+// -----------------------------------------------------------------------------
+
 const canvas = document.getElementById('canvas');
-const c = canvas.getContext('2d');
-const gravity = 0.7;
-canvas.width = 1440;
-canvas.height = 980;
-const img = new Image();
-const img2 = new Image();
-const img3 = new Image();
-const img4 = new Image();
-img.src = 'img/map1/Sky.png';
-img2.src = 'img/map1/BG_Decor.png';
-img3.src = 'img/map1/Middle_Decor.png'
-img4.src = 'img/map1/Foreground.png'
+const ctx = canvas.getContext('2d');
 
+const CONFIG = {
+  canvas: { width: 1440, height: 980 },
+  gravity: 0.7,
+  game: {
+    roundTime: 80,
+    maxHealth: 100,
+    roundsToWin: 3,
+    baseDamage: 10,
+    critChance: 0.2,
+    critMultiplier: { min: 1.1, max: 2.5 },
+    blockDamageReduction: 0.1,
+    healAmount: 35,
+    attackDuration: 100,
+  },
+  movement: {
+    playerSpeed: 5,
+    jumpForce: 20,
+    rocketJumpForce: 25,
+  },
+  background: {
+    layerPaths: [
+      'img/map1/Sky.png',
+      'img/map1/BG_Decor.png',
+      'img/map1/Middle_Decor.png',
+      'img/map1/Foreground.png',
+    ],
+    parallaxSpeeds: [0.15, 0.3, 0.4],
+  },
+};
 
-let bgOffsetX = 0;
-let bgOffsetX_2 = 0;
-let bgOffsetX_3 = 0;
+canvas.width = CONFIG.canvas.width;
+canvas.height = CONFIG.canvas.height;
 
+// -----------------------------------------------------------------------------
+// BACKGROUND / PARALLAX
+// -----------------------------------------------------------------------------
 
-
-let images = [img, img2, img3, img4];
-images.forEach(image => {
-  image.onload = () => {
-    drawBackground();
-  };
+const backgroundLayers = CONFIG.background.layerPaths.map((src) => {
+  const img = new Image();
+  img.src = src;
+  return img;
 });
-function drawBackground() {
-  c.clearRect(0, 0, canvas.width, canvas.height);
-  c.fillStyle = 'black';
-  c.fillRect(0, 0, canvas.width, canvas.height);
 
-  drawCoverFromSprite( 
-    img,
-    0, 0, 1920, 1080,
-    0, 0, canvas.width, canvas.height
-  );
-  
-  drawCoverFromSprite( 
-    img2,
-    0, 0, 1920, 1080,
-    bgOffsetX, 0, canvas.width, canvas.height
-  );
+const parallaxOffsets = CONFIG.background.parallaxSpeeds.map(() => 0);
 
-  drawCoverFromSprite( 
-    img3,
-    0, 0, 1920, 1080,
-    bgOffsetX_2, 0, canvas.width, canvas.height
-  );
+backgroundLayers.forEach((img) => {
+  img.onload = () => drawBackground();
+});
 
-  drawCoverFromSprite( 
-    img4,
-    0, 0, 1920, 1080,
-    bgOffsetX_3, 0, canvas.width, canvas.height
-  );
-}
-function drawCoverFromSprite(
-  image,
-  sx, sy, sw, sh,
-  dx, dy, dw, dh
-) {
+function drawCoverFromSprite(image, sx, sy, sw, sh, dx, dy, dw, dh) {
+  if (!image.complete || !image.naturalWidth || !image.naturalHeight) return;
+
   const scale = Math.max(dw / sw, dh / sh);
-
   const newWidth = sw * scale;
   const newHeight = sh * scale;
-
   const offsetX = dx + (dw - newWidth) / 2;
   const offsetY = dy + (dh - newHeight) / 2;
 
-  c.drawImage(
-    image,
-    sx, sy, sw, sh,
-    offsetX, offsetY, newWidth, newHeight
-  );
+  ctx.drawImage(image, sx, sy, sw, sh, offsetX, offsetY, newWidth, newHeight);
 }
 
+function drawBackground() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = 'black';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-//UI Elements
-const playerHealthBar = document.querySelector('.player1-health-bar');
-const enemyHealthBar = document.querySelector('.player2-health-bar');
-const playerScoreElement = document.querySelector('.player2-score');
-const enemyScoreElement = document.querySelector('.player1-score');
-const currentTimeElement = document.querySelector('.timer');
-const initialTime = 80;
-currentTime = initialTime;
-playerHealth = 100;
-enemyHealth = 100;
-playerScore = 0;
-enemyScore = 0;
-playerScoreElement.textContent = playerScore;
-enemyScoreElement.textContent = enemyScore;
-currentTimeElement.innerText = currentTime;
-playerIsWon = false;
-enemyIsWon = false;
-roketPackActive = false;
+  const { width, height } = canvas;
 
-//Timer
-let runEverySecond;
+  backgroundLayers.forEach((img, i) => {
+    const offsetX = i === 0 ? 0 : parallaxOffsets[i - 1];
+    drawCoverFromSprite(img, 0, 0, 1920, 1080, offsetX, 0, width, height);
+  });
+}
+
+function updateParallax(playerVelocityX) {
+  if (playerVelocityX > 0) {
+    parallaxOffsets.forEach((_, i) => (parallaxOffsets[i] -= CONFIG.background.parallaxSpeeds[i]));
+  } else if (playerVelocityX < 0) {
+    parallaxOffsets.forEach((_, i) => (parallaxOffsets[i] += CONFIG.background.parallaxSpeeds[i]));
+  }
+}
+
+// -----------------------------------------------------------------------------
+// GAME STATE
+// -----------------------------------------------------------------------------
+
+const gameState = {
+  currentTime: CONFIG.game.roundTime,
+  playerHealth: CONFIG.game.maxHealth,
+  enemyHealth: CONFIG.game.maxHealth,
+  playerScore: 0,
+  enemyScore: 0,
+  playerWon: false,
+  enemyWon: false,
+  rocketPackActive: false,
+  timerInterval: null,
+};
+
+// -----------------------------------------------------------------------------
+// UI ELEMENTS
+// -----------------------------------------------------------------------------
+
+const ui = {
+  playerHealthBar: document.querySelector('.player1-health-bar'),
+  enemyHealthBar: document.querySelector('.player2-health-bar'),
+  playerScore: document.querySelector('.player2-score'),
+  enemyScore: document.querySelector('.player1-score'),
+  timer: document.querySelector('.timer'),
+};
+
+function updateUI() {
+  ui.playerHealthBar.style.width = `${gameState.playerHealth}%`;
+  ui.enemyHealthBar.style.width = `${gameState.enemyHealth}%`;
+  ui.playerScore.textContent = gameState.playerScore;
+  ui.enemyScore.textContent = gameState.enemyScore;
+  ui.timer.textContent = gameState.currentTime;
+}
+
+// -----------------------------------------------------------------------------
+// TIMER
+// -----------------------------------------------------------------------------
+
+const POWERUP_SPAWN_CHANCE = 0.1;
+
 function startTimer() {
-  currentTime = initialTime;
-  runEverySecond = setInterval(() => {
-    currentTime--;
-    currentTimeElement.innerText = currentTime;
-    if ( Math.random() < 0.1 && healBox.visible === false) {
-      healBox.position.x = Math.random() * (canvas.width - 25);
+  gameState.currentTime = CONFIG.game.roundTime;
+  gameState.timerInterval = setInterval(() => {
+    gameState.currentTime--;
+    ui.timer.textContent = gameState.currentTime;
+
+    if (Math.random() < POWERUP_SPAWN_CHANCE && !healBox.visible) {
+      healBox.position.x = Math.random() * (canvas.width - healBox.width);
       healBox.visible = true;
     }
-    if ( Math.random() < 0.1 && roketPack.visible === false) {
-      roketPack.position.x = Math.random() * (canvas.width - 30);
-      roketPack.visible = true;
+    if (Math.random() < POWERUP_SPAWN_CHANCE && !rocketPack.visible) {
+      rocketPack.position.x = Math.random() * (canvas.width - rocketPack.width);
+      rocketPack.visible = true;
     }
-    if (currentTime <= 0) {
-      clearInterval(runEverySecond);
-      if (playerHealth < enemyHealth) {
-        playerScore++;
-        playerScoreElement.textContent = playerScore;
-        reset();
-      } else if (enemyHealth < playerHealth) {
-        enemyScore++;
-        enemyScoreElement.textContent = enemyScore;
-        reset();
-      } else {
-        setTimeout(() => {
-          console.log('Tie');
-          reset();
-        }, 1000);
-        
-      }
-      clearInterval(runEverySecond);
+
+    if (gameState.currentTime <= 0) {
+      endRound();
     }
   }, 1000);
 }
 
-startTimer();
+function endRound() {
+  clearInterval(gameState.timerInterval);
+
+  if (gameState.playerHealth < gameState.enemyHealth) {
+    gameState.playerScore++;
+    reset();
+  } else if (gameState.enemyHealth < gameState.playerHealth) {
+    gameState.enemyScore++;
+    reset();
+  } else {
+    setTimeout(reset, 1000);
+  }
+}
 
 function reset() {
-  clearInterval(runEverySecond);
-  playerHealth = 100;
-  enemyHealth = 100;
-  currentTime = initialTime;
-  player.position.x = 0 + player.width + 50;
+  clearInterval(gameState.timerInterval);
+  gameState.playerHealth = CONFIG.game.maxHealth;
+  gameState.enemyHealth = CONFIG.game.maxHealth;
+  gameState.currentTime = CONFIG.game.roundTime;
+
+  player.position.x = 50 + player.width;
   player.position.y = canvas.height - player.height;
   enemy.position.x = canvas.width - enemy.width - 100;
   enemy.position.y = canvas.height - enemy.height;
   player.velocity.x = 0;
+  player.velocity.y = 0;
   enemy.velocity.x = 0;
-  player.isAttacking = false;
-  enemy.isAttacking = false;
-  player.attackBox.offset.x = 0;
-  enemy.attackBox.offset.x = 0;
-  player.lastKey = '';
-  enemy.lastKey = '';
-  currentTimeElement.innerText = currentTime;
-  if (playerScore < 3 && enemyScore < 3)  {
-    setTimeout(() => startTimer(), 0);  // Defer to next event loop tick
-  } else {
-    clearInterval(runEverySecond);
+  enemy.velocity.y = 0;
+  player.reset();
+  enemy.reset();
+
+  updateUI();
+  ui.timer.textContent = gameState.currentTime;
+
+  if (gameState.playerScore < CONFIG.game.roundsToWin && gameState.enemyScore < CONFIG.game.roundsToWin) {
+    setTimeout(startTimer, 0);
   }
 }
 
-
-function won() {
-  clearInterval(runEverySecond);
-  if (playerIsWon) {
-    alert('Player Won');
-    playerIsWon = false;
-  } else if (enemyIsWon) {
-    alert('Enemy Won');
-    enemyIsWon = false;
+function checkGameOver() {
+  if (gameState.playerScore >= CONFIG.game.roundsToWin) {
+    gameState.playerWon = true;
+    showWinner();
+  } else if (gameState.enemyScore >= CONFIG.game.roundsToWin) {
+    gameState.enemyWon = true;
+    showWinner();
   }
-  playerScoreElement.textContent = playerScore;
-  enemyScoreElement.textContent = enemyScore;
+}
+
+function showWinner() {
+  clearInterval(gameState.timerInterval);
+  alert(gameState.playerWon ? 'Player Won' : 'Enemy Won');
+  gameState.playerWon = false;
+  gameState.enemyWon = false;
+  updateUI();
   reset();
 }
 
-function critChance() {
-  let crit = Math.random() < 0.2 ? (1.1 + Math.random() * 1.4) : 1;
-  console.log('dmg ', crit);
-  return crit;
+// -----------------------------------------------------------------------------
+// COMBAT HELPERS
+// -----------------------------------------------------------------------------
+
+function rollCrit() {
+  return Math.random() < CONFIG.game.critChance
+    ? CONFIG.game.critMultiplier.min + Math.random() * (CONFIG.game.critMultiplier.max - CONFIG.game.critMultiplier.min)
+    : 1;
 }
 
+function applyDamage(attacker, defender, healthKey, scoreKey, scoreElement) {
+  let damage = CONFIG.game.baseDamage * rollCrit();
+
+  if (defender.isBlocking) {
+    damage *= CONFIG.game.blockDamageReduction;
+  } else {
+    gameState[healthKey] -= damage;
+  }
+
+  if (gameState[healthKey] <= 0) {
+    gameState[scoreKey]++;
+    scoreElement.textContent = gameState[scoreKey];
+    reset();
+    checkGameOver();
+  }
+}
+
+// -----------------------------------------------------------------------------
+// SPRITE CLASS
+// -----------------------------------------------------------------------------
 
 class Sprite {
-  constructor({position, velocity, color, offset, height, width  }) {
-    this.position = position;
-    this.velocity = velocity;
-    this.height = height;
+  constructor({ position, velocity, color, offset = { x: 0, y: 0 }, width, height }) {
+    this.position = { x: position.x, y: position.y };
+    this.velocity = { x: velocity.x, y: velocity.y };
     this.width = width;
-    this.lastKey = '';
+    this.height = height;
     this.color = color;
+    this.lastKey = '';
+    this.isAttacking = false;
+    this.isBlocking = false;
+
     this.attackBox = {
-      position: {
-        x: this.position.x,
-        y: this.position.y
-      },
-      offset,
+      position: { x: 0, y: 0 },
+      offset: { x: offset.x, y: offset.y },
       width: 100,
       height: 50,
-    }
-    this.isAttacking = false;
+    };
   }
 
   draw() {
-    c.fillStyle = this.color;
-    c.fillRect(this.position.x, this.position.y, this.width, this.height)
+    ctx.fillStyle = this.color;
+    ctx.fillRect(this.position.x, this.position.y, this.width, this.height);
 
-    //attack box
     if (this.isAttacking) {
-      c.fillStyle = 'green';
-      c.fillRect(
-        this.attackBox.position.x, 
-        this.attackBox.position.y, 
-        this.attackBox.width, 
+      ctx.fillStyle = 'green';
+      ctx.fillRect(
+        this.attackBox.position.x,
+        this.attackBox.position.y,
+        this.attackBox.width,
         this.attackBox.height
-      )
+      );
     }
   }
 
   update() {
     this.draw();
+
     this.attackBox.position.x = this.position.x + this.attackBox.offset.x;
     this.attackBox.position.y = this.position.y - this.attackBox.offset.y;
-    this.position.y += this.velocity.y;
+
     this.position.x += this.velocity.x;
-    enemyHealthBar.style.width = `${enemyHealth}%`;
-    playerHealthBar.style.width = `${playerHealth}%`;
+    this.position.y += this.velocity.y;
+
     if (this.position.y + this.height >= canvas.height) {
       this.position.y = canvas.height - this.height;
       this.velocity.y = 0;
     } else {
-      this.velocity.y += gravity;
+      this.velocity.y += CONFIG.gravity;
     }
-    if (this.position.x + this.width >= canvas.width || this.position.x <= 0) {
-      this.position.x = Math.max(0, Math.min(canvas.width - this.width, this.position.x));
+
+    this.position.x = Math.max(0, Math.min(canvas.width - this.width, this.position.x));
+    if (this.position.x <= 0 || this.position.x + this.width >= canvas.width) {
       this.velocity.x = 0;
     }
+
+    updateUI();
   }
+
   attack() {
     this.isAttacking = true;
-    setTimeout(() => {
-      this.isAttacking = false;
-    }, 100)
+    setTimeout(() => (this.isAttacking = false), CONFIG.game.attackDuration);
   }
+
   block() {
     this.isBlocking = true;
   }
+
+  reset() {
+    this.isAttacking = false;
+    this.isBlocking = false;
+    this.lastKey = '';
+  }
 }
 
-const roketPack = new Sprite({
-  position: { x: Math.random() * (canvas.width - 60), y: canvas.height - 70 },
+// Fighter extends Sprite with proper attackBox offset reset
+class Fighter extends Sprite {
+  constructor(props) {
+    super(props);
+    this.defaultAttackOffsetX = props.offset?.x ?? 0;
+  }
+
+  reset() {
+    super.reset();
+    this.attackBox.offset.x = this.defaultAttackOffsetX;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// GAME ENTITIES
+// -----------------------------------------------------------------------------
+
+const rocketPack = new Sprite({
+  position: { x: 0, y: canvas.height - 70 },
   velocity: { x: 0, y: 0 },
   color: 'yellow',
+  width: 60,
   height: 70,
-  width: 60
 });
-roketPack.visible = false;
+rocketPack.visible = false;
 
 const healBox = new Sprite({
-  position: { x: Math.random() * (canvas.width - 50), y: canvas.height - 50 },
+  position: { x: 0, y: canvas.height - 50 },
   velocity: { x: 0, y: 0 },
   color: 'green',
-  height: 50,
   width: 50,
+  height: 50,
 });
 healBox.visible = false;
 
-const player = new Sprite({
-  position: { x: 0+100, y: 0 },
+const player = new Fighter({
+  position: { x: 100, y: 0 },
   velocity: { x: 0, y: 0 },
   color: 'blue',
   offset: { x: 0, y: 0 },
-  height: 150,
   width: 50,
+  height: 150,
 });
 
-const enemy = new Sprite({
-  position: { x: 1440-150, y: 100},
+const enemy = new Fighter({
+  position: { x: canvas.width - 150, y: 100 },
   velocity: { x: 0, y: 0 },
   color: 'red',
   offset: { x: -50, y: 0 },
-  height: 150,
   width: 50,
+  height: 150,
 });
 
-healBox.draw();
-player.draw();
-enemy.draw();
-roketPack.draw();
+// -----------------------------------------------------------------------------
+// COLLISION DETECTION
+// -----------------------------------------------------------------------------
 
+function rectsOverlap(attacker, defender, useAttackBox = false) {
+  const r1 = useAttackBox && attacker.attackBox
+    ? { x: attacker.attackBox.position.x, y: attacker.attackBox.position.y, w: attacker.attackBox.width, h: attacker.attackBox.height }
+    : { x: attacker.position.x, y: attacker.position.y, w: attacker.width, h: attacker.height };
+  const r2 = { x: defender.position.x, y: defender.position.y, w: defender.width, h: defender.height };
 
+  return (
+    r1.x + r1.w >= r2.x &&
+    r2.x + r2.w >= r1.x &&
+    r1.y + r1.h >= r2.y &&
+    r2.y + r2.h >= r1.y
+  );
+}
 
-function animate() {
-  window.requestAnimationFrame(animate);
-  //Background movement
-  if (player.velocity.x > 0) {
-    bgOffsetX -= 0.15; // player goes right -> bg shifts left
-    bgOffsetX_2 -= 0.3
-    bgOffsetX_3 -= 0.4
-  } else if (player.velocity.x < 0) {
-    bgOffsetX += 0.15; // player goes left -> bg shifts right
-    bgOffsetX_2 += 0.3;
-    bgOffsetX_3 += 0.4;
+// -----------------------------------------------------------------------------
+// INPUT HANDLING
+// -----------------------------------------------------------------------------
+
+const keys = {
+  a: { pressed: false },
+  d: { pressed: false },
+  w: { pressed: false },
+  s: { pressed: false },
+  ArrowRight: { pressed: false },
+  ArrowLeft: { pressed: false },
+  ArrowUp: { pressed: false },
+  slash: { pressed: false },
+};
+
+function handleKeyDown(e) {
+  switch (e.key) {
+    case 's':
+      player.block();
+      break;
+    case ' ':
+      player.attack();
+      break;
+    case 'd':
+      keys.d.pressed = true;
+      player.lastKey = 'd';
+      break;
+    case 'a':
+      keys.a.pressed = true;
+      player.lastKey = 'a';
+      break;
+    case 'w':
+      if (player.velocity.y === 0) player.velocity.y = -CONFIG.movement.jumpForce;
+      else if (gameState.rocketPackActive) {
+        player.velocity.y = -CONFIG.movement.rocketJumpForce;
+        gameState.rocketPackActive = false;
+      }
+      break;
+
+    case '/':
+      enemy.attack();
+      break;
+    case 'ArrowDown':
+      enemy.block();
+      break;
+    case 'ArrowRight':
+      keys.ArrowRight.pressed = true;
+      enemy.lastKey = 'ArrowRight';
+      break;
+    case 'ArrowLeft':
+      keys.ArrowLeft.pressed = true;
+      enemy.lastKey = 'ArrowLeft';
+      break;
+    case 'ArrowUp':
+      if (enemy.velocity.y === 0) enemy.velocity.y = -CONFIG.movement.jumpForce;
+      else if (gameState.rocketPackActive) {
+        enemy.velocity.y = -CONFIG.movement.rocketJumpForce;
+        gameState.rocketPackActive = false;
+      }
+      break;
   }
-  //Background drawing
-  if (img.complete && img.naturalHeight !== 0) {
-    drawBackground();
-  } else {
-    c.fillStyle = 'black';
-    c.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function handleKeyUp(e) {
+  switch (e.key) {
+    case 's':
+      player.isBlocking = false;
+      break;
+    case 'd':
+      keys.d.pressed = false;
+      break;
+    case 'a':
+      keys.a.pressed = false;
+      break;
+    case 'ArrowDown':
+      enemy.isBlocking = false;
+      break;
+    case 'ArrowRight':
+      keys.ArrowRight.pressed = false;
+      break;
+    case 'ArrowLeft':
+      keys.ArrowLeft.pressed = false;
+      break;
   }
-  player.update();
-  enemy.update();
-  if (roketPack.visible) {
-    roketPack.draw();
-  }
-  if (healBox.visible) {
-    healBox.draw();
-  }
-  //Player movement
+}
+
+// -----------------------------------------------------------------------------
+// GAME LOOP
+// -----------------------------------------------------------------------------
+
+function handlePlayerInput() {
   if (keys.a.pressed && player.lastKey === 'a') {
     player.attackBox.offset.x = -player.attackBox.width + player.width;
-    player.velocity.x = -5;
-  } 
-  else if (keys.d.pressed && player.lastKey === 'd') {
+    player.velocity.x = -CONFIG.movement.playerSpeed;
+  } else if (keys.d.pressed && player.lastKey === 'd') {
     player.attackBox.offset.x = 0;
-    player.velocity.x = 5;
+    player.velocity.x = CONFIG.movement.playerSpeed;
   } else {
     player.velocity.x = 0;
   }
-  //Enemy movement
+
   if (keys.ArrowRight.pressed && enemy.lastKey === 'ArrowRight') {
     enemy.attackBox.offset.x = 0;
-    enemy.velocity.x = 5;
-  } 
-  else if (keys.ArrowLeft.pressed && enemy.lastKey === 'ArrowLeft') {
+    enemy.velocity.x = CONFIG.movement.playerSpeed;
+  } else if (keys.ArrowLeft.pressed && enemy.lastKey === 'ArrowLeft') {
     enemy.attackBox.offset.x = -enemy.attackBox.width + enemy.width;
-    enemy.velocity.x = -5;
+    enemy.velocity.x = -CONFIG.movement.playerSpeed;
   } else {
     enemy.velocity.x = 0;
   }
+}
 
-
-
-  if (roketPack.visible && roketPackCollision({ rectangle1: player, rectangle2: roketPack })) {
-    console.log('roket pack hit by Player');
-    roketPack.visible = false;
-    roketPackActive = true;
+function handlePowerupCollisions() {
+  if (rocketPack.visible && rectsOverlap(player, rocketPack)) {
+    rocketPack.visible = false;
+    gameState.rocketPackActive = true;
   }
-  if (roketPack.visible && roketPackCollision({ rectangle1: enemy, rectangle2: roketPack })) {
-    console.log('roket pack hit by Enemy');
-    roketPack.visible = false;
-    roketPackActive = true;
+  if (rocketPack.visible && rectsOverlap(enemy, rocketPack)) {
+    rocketPack.visible = false;
+    gameState.rocketPackActive = true;
   }
 
-  if (healBox.visible && healBoxCollision({ rectangle1: player, rectangle2: healBox })) {
-    console.log('heal box hit by Player');
-    playerHealth = Math.min(playerHealth + 35, 100);
+  if (healBox.visible && rectsOverlap(player, healBox)) {
+    gameState.playerHealth = Math.min(gameState.playerHealth + CONFIG.game.healAmount, CONFIG.game.maxHealth);
     healBox.visible = false;
   }
-  if (healBox.visible && healBoxCollision({ rectangle1: enemy, rectangle2: healBox })) {
-    console.log('heal box hit by Enemy');
-    enemyHealth = Math.min(enemyHealth + 35, 100);
+  if (healBox.visible && rectsOverlap(enemy, healBox)) {
+    gameState.enemyHealth = Math.min(gameState.enemyHealth + CONFIG.game.healAmount, CONFIG.game.maxHealth);
     healBox.visible = false;
   }
-  
+}
 
-  //player attack boxdetect collision
-  if (
-    rectangleCollision({rectangle1: player, rectangle2: enemy}) &&
-    player.isAttacking
-  ) 
-  {
+function handleCombatCollisions() {
+  if (rectsOverlap(player, enemy, true) && player.isAttacking) {
     player.isAttacking = false;
-    console.log('enemy hit');
-    let damage = 10 * critChance();
-    if (enemy.isBlocking) {
-      damage *= 0.1;
-      console.log('enemy is blocking, damage reduced to ', damage);
-    } else {
-      enemyHealth -= damage;
-      console.log('enemy hit for ', damage, 'damage');
-    }
-    
-    if (enemyHealth <= 0) {
-      enemyScore++;
-      enemyScoreElement.textContent = enemyScore;
-      reset();
-      if (enemyScore >= 3) {
-        playerIsWon = true;
-        won();
-      } 
-      console.log('Enemy Score: ', enemyScore);
-      
-    }
+    applyDamage(player, enemy, 'enemyHealth', 'playerScore', ui.playerScore);
   }
-  //enemy attack box detect collision
-  if (
-    rectangleCollision({rectangle1: enemy, rectangle2: player}) &&
-    enemy.isAttacking
-  ) 
-  {
+
+  if (rectsOverlap(enemy, player, true) && enemy.isAttacking) {
     enemy.isAttacking = false;
-    console.log('player hit');
-    let damage = 10 * critChance();
-    if (player.isBlocking) {
-      damage *= 0.1;
-      console.log('player is blocking, damage reduced to ', damage);
-    } else {
-      playerHealth -= damage;
-      console.log('player hit for ', damage, 'damage');
-    }
-    playerHealth -= damage;
-    if (playerHealth <= 0) {
-      playerScore++;
-      playerScoreElement.textContent = playerScore;
-      reset();
-      if (playerScore >= 3) {
-        enemyIsWon = true;
-        won();
-      }
-      console.log('Player Score: ', playerScore);
-    }
+    applyDamage(enemy, player, 'playerHealth', 'enemyScore', ui.enemyScore);
   }
 }
 
+function animate() {
+  requestAnimationFrame(animate);
 
-const keys = {
-  a: {
-    pressed: false
-  },
-  d: {
-    pressed: false
-  },
-  w: {
-    pressed: false
-  },
-  s: {
-    pressed: false
-  },
+  updateParallax(player.velocity.x);
 
-  ArrowRight: {
-    pressed: false
-  },
-  ArrowLeft: {
-    pressed: false
-  },
-  ArrowUp: {
-    pressed: false
-  },
-  slash: {
-    pressed: false
+  if (backgroundLayers[0].complete && backgroundLayers[0].naturalHeight) {
+    drawBackground();
+  } else {
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
+
+  player.update();
+  enemy.update();
+
+  if (rocketPack.visible) rocketPack.draw();
+  if (healBox.visible) healBox.draw();
+
+  handlePlayerInput();
+  handlePowerupCollisions();
+  handleCombatCollisions();
 }
 
-function rectangleCollision({ rectangle1, rectangle2 }) {
-  return (
-    rectangle1.attackBox.position.x + rectangle1.attackBox.width >= rectangle2.position.x &&
-    rectangle2.position.x + rectangle2.width >= rectangle1.attackBox.position.x &&
-    rectangle1.attackBox.position.y + rectangle1.attackBox.height >= rectangle2.position.y &&
-    rectangle2.position.y + rectangle2.height >= rectangle1.attackBox.position.y
-  )
-}
+// -----------------------------------------------------------------------------
+// INIT
+// -----------------------------------------------------------------------------
 
-function roketPackCollision({ rectangle1, rectangle2 }) {
-  return (
-    rectangle1.position.x + rectangle1.width >= rectangle2.position.x &&
-    rectangle2.position.x + rectangle2.width >= rectangle1.position.x &&
-    rectangle1.position.y + rectangle1.height >= rectangle2.position.y &&
-    rectangle2.position.y + rectangle2.height >= rectangle1.position.y
-  )
-}
-
-function healBoxCollision({ rectangle1, rectangle2 }) {
-  return (
-    rectangle1.position.x + rectangle1.width >= rectangle2.position.x &&
-    rectangle2.position.x + rectangle2.width >= rectangle1.position.x &&
-    rectangle1.position.y + rectangle1.height >= rectangle2.position.y &&
-    rectangle2.position.y + rectangle2.height >= rectangle1.position.y
-  )
-}
-
+updateUI();
+startTimer();
 animate();
-window.addEventListener('keydown', (event) => {
-  switch (event.key) {
-    //Player keysss
-    case 's':
-      player.block();
-      console.log('player is blocking');
-      break
-    case ' ':
-      player.attack();
-      break
-    case 'd':
-      keys.d.pressed = true
-      player.lastKey = 'd';
-      break
-    case 'a':
-      keys.a.pressed = true
-      player.lastKey = 'a';
-      break
-    case 'w':
-      if (player.velocity.y === 0) {
-        player.velocity.y = -20
-      } else if (roketPackActive) {
-        player.velocity.y = -25;
-        roketPackActive = false;
-      }
-      break
 
-    //Enemy keys
-    case '/':
-      enemy.attack();
-      break
-    case 'ArrowDown':
-      enemy.block();
-      console.log('enemy is blocking');
-      break
-    case 'ArrowRight':
-      keys.ArrowRight.pressed = true
-      enemy.lastKey = 'ArrowRight';
-      break
-    case 'ArrowLeft':
-      keys.ArrowLeft.pressed = true
-      enemy.lastKey = 'ArrowLeft';
-      break
-    case 'ArrowUp':
-      if (enemy.velocity.y === 0) {
-        enemy.velocity.y = -20
-      } else if (roketPackActive) {
-        enemy.velocity.y = -25;
-        roketPackActive = false;   
-      }
-      break
-  }
-})
-window.addEventListener('keyup', (event) => {
-  switch (event.key) {
-    //Player keys
-    case 's':
-      player.isBlocking = false;
-      console.log('player is not blocking');
-      break
-    case 'd':
-      keys.d.pressed = false
-      break
-    case 'a':
-      keys.a.pressed = false
-      break
-
-    //Enemy keys
-    case 'ArrowDown':
-      enemy.isBlocking = false;
-      console.log('enemy is not blocking');
-      break
-    case 'ArrowRight':
-      keys.ArrowRight.pressed = false
-      break
-    case 'ArrowLeft':
-      keys.ArrowLeft.pressed = false
-      break
-  }
-})
-
-
+window.addEventListener('keydown', handleKeyDown);
+window.addEventListener('keyup', handleKeyUp);
