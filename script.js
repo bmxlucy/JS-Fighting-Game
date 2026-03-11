@@ -19,7 +19,7 @@ const CONFIG = {
     baseDamage: 10,
     critChance: 0.2,
     critMultiplier: { min: 1.1, max: 2.5 },
-    blockDamageReduction: 0.1,
+    blockDamageReduction: 0.9,
     healAmount: 35,
     attackDuration: 100,
   },
@@ -191,6 +191,9 @@ function reset() {
   if (gameState.playerScore < CONFIG.game.roundsToWin && gameState.enemyScore < CONFIG.game.roundsToWin) {
     setTimeout(startTimer, 0);
   }
+
+  parallaxOffsets.forEach((_, i) => (parallaxOffsets[i] = 0));
+  
 }
 
 function checkGameOver() {
@@ -226,10 +229,10 @@ function applyDamage(attacker, defender, healthKey, scoreKey, scoreElement) {
   let damage = CONFIG.game.baseDamage * rollCrit();
 
   if (defender.isBlocking) {
-    damage *= CONFIG.game.blockDamageReduction;
-  } else {
-    gameState[healthKey] -= damage;
+    damage *= (1 - CONFIG.game.blockDamageReduction);
   }
+
+  gameState[healthKey] -= damage;
 
   if (gameState[healthKey] <= 0) {
     gameState[scoreKey]++;
