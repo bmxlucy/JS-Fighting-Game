@@ -482,7 +482,7 @@ function healBoxCollision({ rectangle1, rectangle2 }) {
 animate();
 window.addEventListener('keydown', (event) => {
   switch (event.key) {
-    //Player keys
+    //Player keysss
     case 's':
       player.block();
       console.log('player is blocking');
