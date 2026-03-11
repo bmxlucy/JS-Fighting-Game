@@ -4,33 +4,54 @@ const gravity = 0.7;
 canvas.width = 1440;
 canvas.height = 980;
 const img = new Image();
-img.src = 'img/bg.png';
-img.onload = () => {
-  drawBackground();
-};
+const img2 = new Image();
+const img3 = new Image();
+const img4 = new Image();
+img.src = 'img/map1/Sky.png';
+img2.src = 'img/map1/BG_Decor.png';
+img3.src = 'img/map1/Middle_Decor.png'
+img4.src = 'img/map1/Foreground.png'
+
+
+let bgOffsetX = 0;
+let bgOffsetX_2 = 0;
+let bgOffsetX_3 = 0;
+
+
+
+let images = [img, img2, img3, img4];
+images.forEach(image => {
+  image.onload = () => {
+    drawBackground();
+  };
+});
 function drawBackground() {
   c.clearRect(0, 0, canvas.width, canvas.height);
   c.fillStyle = 'black';
   c.fillRect(0, 0, canvas.width, canvas.height);
-  
+
   drawCoverFromSprite( 
     img,
-    0, 0, 1024, 400,
+    0, 0, 1920, 1080,
     0, 0, canvas.width, canvas.height
   );
+  
+  drawCoverFromSprite( 
+    img2,
+    0, 0, 1920, 1080,
+    bgOffsetX, 0, canvas.width, canvas.height
+  );
 
-  // 2) midground ruins
-    drawCoverFromSprite(
-      img,
-      1024, 0, 1024, 400,
-      300, 200, canvas.width, 800
-    );
+  drawCoverFromSprite( 
+    img3,
+    0, 0, 1920, 1080,
+    bgOffsetX_2, 0, canvas.width, canvas.height
+  );
 
-  // 3) fog
-  drawCoverFromSprite(
-    img,
-    0, 680, 1024, 160,
-    0, 400, canvas.width, 400
+  drawCoverFromSprite( 
+    img4,
+    0, 0, 1920, 1080,
+    bgOffsetX_3, 0, canvas.width, canvas.height
   );
 }
 function drawCoverFromSprite(
@@ -266,8 +287,21 @@ player.draw();
 enemy.draw();
 roketPack.draw();
 
+
+
 function animate() {
   window.requestAnimationFrame(animate);
+  //Background movement
+  if (player.velocity.x > 0) {
+    bgOffsetX -= 0.15; // player goes right -> bg shifts left
+    bgOffsetX_2 -= 0.3
+    bgOffsetX_3 -= 0.4
+  } else if (player.velocity.x < 0) {
+    bgOffsetX += 0.15; // player goes left -> bg shifts right
+    bgOffsetX_2 += 0.3;
+    bgOffsetX_3 += 0.4;
+  }
+  //Background drawing
   if (img.complete && img.naturalHeight !== 0) {
     drawBackground();
   } else {
@@ -304,6 +338,7 @@ function animate() {
   } else {
     enemy.velocity.x = 0;
   }
+
 
 
   if (roketPack.visible && roketPackCollision({ rectangle1: player, rectangle2: roketPack })) {
