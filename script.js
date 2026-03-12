@@ -260,8 +260,8 @@ class Sprite {
     this.attackBox = {
       position: { x: 0, y: 0 },
       offset: { x: offset.x, y: offset.y },
-      width: 100,
-      height: 50,
+      width: 200,
+      height: 100,
     };
   }
 
@@ -360,17 +360,17 @@ const player = new Fighter({
   velocity: { x: 0, y: 0 },
   color: 'blue',
   offset: { x: 0, y: 0 },
-  width: 50,
-  height: 150,
+  width: 90,
+  height: 250,
 });
 
 const enemy = new Fighter({
-  position: { x: canvas.width - 150, y: 100 },
+  position: { x: canvas.width - 190, y: 100 },
   velocity: { x: 0, y: 0 },
   color: 'red',
-  offset: { x: -50, y: 0 },
-  width: 50,
-  height: 150,
+  offset: { x: -110, y: 0 },
+  width: 90,
+  height: 250,
 });
 
 // -----------------------------------------------------------------------------
