@@ -23,6 +23,10 @@ const CONFIG = {
     healAmount: 35,
     attackDuration: 100,
   },
+  animation: {
+    frameCount: 6,
+    frameInterval: 220,  // ms per frame (lower = faster)
+  },
   movement: {
     playerSpeed: 5,
     jumpForce: 20,
@@ -273,7 +277,11 @@ class Sprite {
       // Crop to center of frame (remove side padding) - adjust cropRatio as needed
       const cropRatio = 0.3;  // 0.4 = center 40% of frame, 0.5 = center half
       const cropWidth = frameWidth * cropRatio; //51.2
-      const sx = (frameWidth - cropWidth) / 2;  // center crop within frame 38.4
+      // Animation  
+      const frameIndex = this.currentFrame ?? 0;
+      const frameBaseX = frameIndex * frameWidth;
+      const sx = frameBaseX + (frameWidth - cropWidth) / 2; //38.4
+      // End Animation  
       const sy = 5;
       const sw = cropWidth;
       const sh = frameHeight;
@@ -339,7 +347,15 @@ class Sprite {
     if (this.position.x <= 0 || this.position.x + this.width >= canvas.width) {
       this.velocity.x = 0;
     }
-
+    // Animation
+    if (this.image?.complete) {
+      this.frameTimer += 16;  // ~60fps
+      if (this.frameTimer >= this.frameInterval) {
+        this.frameTimer = 0;
+        this.currentFrame = (this.currentFrame + 1) % this.frameCount;
+      }
+    }
+    // End Animation
     updateUI();
   }
 
@@ -363,6 +379,13 @@ class Sprite {
 class Fighter extends Sprite {
   constructor(props) {
     super(props);
+    // Animation
+    this.currentFrame = 0;
+    this.frameTimer = 0;
+    this.frameInterval = CONFIG.animation?.frameInterval ?? 100;
+    this.frameCount = CONFIG.animation?.frameCount ?? 6;
+    // End Animation
+
     this.defaultAttackOffsetX = props.offset?.x ?? 0;
 
     // Load sptine image
