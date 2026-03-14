@@ -266,8 +266,47 @@ class Sprite {
   }
 
   draw() {
-    ctx.fillStyle = this.color;
-    ctx.fillRect(this.position.x, this.position.y, this.width, this.height);
+    if (this.image?.complete && this.image?.naturalWidth) {
+      const frameWidth = this.image.naturalWidth / 6; //128
+      const frameHeight = this.image.naturalHeight;
+  
+      // Crop to center of frame (remove side padding) - adjust cropRatio as needed
+      const cropRatio = 0.3;  // 0.4 = center 40% of frame, 0.5 = center half
+      const cropWidth = frameWidth * cropRatio; //51.2
+      const sx = (frameWidth - cropWidth) / 2;  // center crop within frame 38.4
+      const sy = 5;
+      const sw = cropWidth;
+      const sh = frameHeight;
+  
+      // Scale to fit within box, centered (preserves aspect ratio)
+      const scale = Math.min(this.width / cropWidth, this.height / frameHeight); //1.2
+      const drawWidth = cropWidth * scale * 1.2;
+      const drawHeight = frameHeight * scale * 1.2;
+      const dx = this.position.x + (this.width - drawWidth) / 2;
+      const dy = this.position.y + this.height - drawHeight;
+
+      const facingLeft = this.lastKey === 'a' || this.lastKey === 'ArrowLeft';
+      ctx.save();
+
+      if (facingLeft) {
+        const centerX = dx + drawWidth / 2;
+        const centerY = dy + drawHeight / 2;
+        ctx.translate(centerX, centerY);
+        ctx.scale(-1, 1);
+        ctx.translate(-centerX, -centerY);
+      }
+  
+      ctx.drawImage(this.image, sx, sy, sw, sh, dx, dy, drawWidth, drawHeight);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = this.color;
+      ctx.fillRect(this.position.x, this.position.y, this.width, this.height);
+    }
+  
+
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(this.position.x, this.position.y, this.width, this.height);
 
     if (this.isAttacking) {
       ctx.fillStyle = 'green';
@@ -325,6 +364,10 @@ class Fighter extends Sprite {
   constructor(props) {
     super(props);
     this.defaultAttackOffsetX = props.offset?.x ?? 0;
+
+    // Load sptine image
+    this.image = new Image();
+    this.image.src = props.imgSrc;
   }
 
   reset() {
@@ -360,8 +403,9 @@ const player = new Fighter({
   velocity: { x: 0, y: 0 },
   color: 'blue',
   offset: { x: 0, y: 0 },
-  width: 90,
+  width: 100,
   height: 250,
+  imgSrc: 'img/Samurai/idle.png'
 });
 
 const enemy = new Fighter({
@@ -369,8 +413,9 @@ const enemy = new Fighter({
   velocity: { x: 0, y: 0 },
   color: 'red',
   offset: { x: -110, y: 0 },
-  width: 90,
+  width: 100,
   height: 250,
+  imgSrc: 'img/Fighter/idle.png'
 });
 
 // -----------------------------------------------------------------------------
