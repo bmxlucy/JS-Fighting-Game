@@ -120,7 +120,10 @@ const gameState = {
   enemyWon: false,
   rocketPackActive: false,
   timerInterval: null,
+  boostCooldownRemaining: 0,
 };
+
+const BOOST_COOLDOWN_SECONDS = 10;
 
 // -----------------------------------------------------------------------------
 // UI ELEMENTS
@@ -154,13 +157,17 @@ function startTimer() {
     gameState.currentTime--;
     ui.timer.textContent = gameState.currentTime;
 
-    if (Math.random() < POWERUP_SPAWN_CHANCE && !healBox.visible) {
-      healBox.position.x = Math.random() * (canvas.width - healBox.width);
-      healBox.visible = true;
-    }
-    if (Math.random() < POWERUP_SPAWN_CHANCE && !rocketPack.visible) {
-      rocketPack.position.x = Math.random() * (canvas.width - rocketPack.width);
-      rocketPack.visible = true;
+    if (gameState.boostCooldownRemaining > 0) {
+      gameState.boostCooldownRemaining--;
+    } else {
+      if (Math.random() < POWERUP_SPAWN_CHANCE && !healBox.visible) {
+        healBox.position.x = Math.random() * (canvas.width - healBox.width);
+        healBox.visible = true;
+      }
+      if (Math.random() < POWERUP_SPAWN_CHANCE && !rocketPack.visible) {
+        rocketPack.position.x = Math.random() * (canvas.width - rocketPack.width);
+        rocketPack.visible = true;
+      }
     }
 
     if (gameState.currentTime <= 0) {
@@ -198,6 +205,10 @@ function reset() {
   enemy.velocity.y = 0;
   player.reset();
   enemy.reset();
+
+  healBox.visible = false;
+  rocketPack.visible = false;
+  gameState.boostCooldownRemaining = BOOST_COOLDOWN_SECONDS;
 
   updateUI();
   ui.timer.textContent = gameState.currentTime;
