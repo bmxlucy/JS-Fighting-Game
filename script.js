@@ -11,6 +11,7 @@ const ctx = canvas.getContext('2d');
 
 const CONFIG = {
   canvas: { width: 1440, height: 980 },
+  floorOffset: 15,
   gravity: 0.7,
   game: {
     roundTime: 80,
@@ -40,11 +41,14 @@ const CONFIG = {
       'img/map1/Foreground.png',
     ],
     parallaxSpeeds: [0.15, 0.3, 0.4],
+    maxParallaxOffset: 400,
   },
 };
 
 canvas.width = CONFIG.canvas.width;
 canvas.height = CONFIG.canvas.height;
+
+const floorY = () => canvas.height - CONFIG.floorOffset;
 
 // -----------------------------------------------------------------------------
 // BACKGROUND / PARALLAX
@@ -87,11 +91,18 @@ function drawBackground() {
   });
 }
 
-function updateParallax(playerVelocityX) {
-  if (playerVelocityX > 0) {
-    parallaxOffsets.forEach((_, i) => (parallaxOffsets[i] -= CONFIG.background.parallaxSpeeds[i]));
-  } else if (playerVelocityX < 0) {
-    parallaxOffsets.forEach((_, i) => (parallaxOffsets[i] += CONFIG.background.parallaxSpeeds[i]));
+function updateParallax(player) {
+  const atLeftBorder = player.position.x <= 0;
+  const atRightBorder = player.position.x >= canvas.width - player.width;
+  if (atLeftBorder || atRightBorder) return;
+
+  const maxOffset = CONFIG.background.maxParallaxOffset ?? 400;
+  const clamp = (v) => Math.max(-maxOffset, Math.min(maxOffset, v));
+
+  if (player.velocity.x > 0) {
+    parallaxOffsets.forEach((_, i) => (parallaxOffsets[i] = clamp(parallaxOffsets[i] - CONFIG.background.parallaxSpeeds[i])));
+  } else if (player.velocity.x < 0) {
+    parallaxOffsets.forEach((_, i) => (parallaxOffsets[i] = clamp(parallaxOffsets[i] + CONFIG.background.parallaxSpeeds[i])));
   }
 }
 
@@ -177,11 +188,10 @@ function reset() {
   gameState.playerHealth = CONFIG.game.maxHealth;
   gameState.enemyHealth = CONFIG.game.maxHealth;
   gameState.currentTime = CONFIG.game.roundTime;
-
   player.position.x = 50 + player.width;
-  player.position.y = canvas.height - player.height;
+  player.position.y = floorY() - player.height;
   enemy.position.x = canvas.width - enemy.width - 100;
-  enemy.position.y = canvas.height - enemy.height;
+  enemy.position.y = floorY() - enemy.height;
   player.velocity.x = 0;
   player.velocity.y = 0;
   enemy.velocity.x = 0;
@@ -418,8 +428,8 @@ class Sprite {
     this.position.x += this.velocity.x;
     this.position.y += this.velocity.y;
 
-    if (this.position.y + this.height >= canvas.height) {
-      this.position.y = canvas.height - this.height;
+    if (this.position.y + this.height >= floorY()) {
+      this.position.y = floorY() - this.height;
       this.velocity.y = 0;
     } else {
       this.velocity.y += CONFIG.gravity;
@@ -531,7 +541,7 @@ class Boost extends Sprite {
 
 // No image - uses color fallback
 const rocketPack = new Boost({
-  position: { x: 0, y: canvas.height - 50 },
+  position: { x: 0, y: floorY() - 50 },
   velocity: { x: 0, y: 0 },
   color: 'yellow',
   width: 50,
@@ -548,7 +558,7 @@ const rocketPack = new Boost({
 rocketPack.visible = false;
 
 const healBox = new Boost({
-  position: { x: 0, y: canvas.height - 50 },
+  position: { x: 0, y: floorY() - 50 },
   velocity: { x: 0, y: 0 },
   color: 'green',
   width: 50,
@@ -754,7 +764,7 @@ function handleCombatCollisions() {
 function animate() {
   requestAnimationFrame(animate);
 
-  updateParallax(player.velocity.x);
+  updateParallax(player);
 
   if (backgroundLayers[0].complete && backgroundLayers[0].naturalHeight) {
     drawBackground();
