@@ -22,7 +22,7 @@ const CONFIG = {
     critMultiplier: { min: 1.1, max: 2.5 },
     blockDamageReduction: 0.9,
     healAmount: 35,
-    attackDuration: 100,
+    attackDuration: 200,
   },
   animation: {
     frameCount: 6,
@@ -420,8 +420,9 @@ class Sprite {
     ctx.strokeRect(this.position.x, this.position.y, this.width, this.height);
 
     if (this.isAttacking) {
-      ctx.fillStyle = 'green';
-      ctx.fillRect(
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(
         this.attackBox.position.x,
         this.attackBox.position.y,
         this.attackBox.width,
@@ -463,7 +464,11 @@ class Sprite {
 
   attack() {
     this.isAttacking = true;
-    setTimeout(() => (this.isAttacking = false), CONFIG.game.attackDuration);
+    this.attackHitRegistered = false;
+    setTimeout(() => {
+      this.isAttacking = false;
+      this.attackHitRegistered = false;
+    }, CONFIG.game.attackDuration);
   }
 
   block() {
@@ -472,6 +477,7 @@ class Sprite {
 
   reset() {
     this.isAttacking = false;
+    this.attackHitRegistered = false;
     this.isBlocking = false;
     this.lastKey = '';
   }
@@ -527,6 +533,21 @@ class Fighter extends Sprite {
     } else {
       this.walkImage = null;
     }
+
+    if (props.attackImgSrc) {
+      this.attackImage = new Image();
+      this.attackImage.src = props.attackImgSrc;
+      this.attackTotalFrames = props.attackTotalFrames ?? 6;
+      this.attackFrameWidth = props.attackFrameWidth ?? props.frameWidth ?? 128;
+      this.attackFrameHeight = props.attackFrameHeight ?? props.frameHeight ?? 128;
+      this.attackAnimationSpeed = props.attackAnimationSpeed ?? 60;
+      this.attackFrameOffsetX = props.attackFrameOffsetX ?? props.frameOffsetX ?? 0;
+      this.attackFrameOffsetY = props.attackFrameOffsetY ?? props.frameOffsetY ?? 0;
+      this.attackCurrentFrame = 0;
+      this.attackFrameTimer = 0;
+    } else {
+      this.attackImage = null;
+    }
   }
 
   isWalking() {
@@ -538,7 +559,44 @@ class Fighter extends Sprite {
   }
 
   draw() {
-    if (this.jumpImage?.complete && this.jumpImage?.naturalWidth && this.isInAir()) {
+    if (this.attackImage?.complete && this.attackImage?.naturalWidth && this.isAttacking) {
+      const prevImage = this.image;
+      const prevTotalFrames = this.totalFrames;
+      const prevOriginalFrameWidth = this.originalFrameWidth;
+      const prevOriginalFrameHeight = this.originalFrameHeight;
+      const prevCroppedFrameWidth = this.croppedFrameWidth;
+      const prevCroppedFrameHeight = this.croppedFrameHeight;
+      const prevCurrentFrame = this.currentFrame;
+      const prevFrameTimer = this.frameTimer;
+      const prevFrameOffsetX = this.frameOffsetX;
+      const prevFrameOffsetY = this.frameOffsetY;
+
+      this.image = this.attackImage;
+      this.totalFrames = this.attackTotalFrames;
+      this.originalFrameWidth = this.attackFrameWidth;
+      this.originalFrameHeight = this.attackFrameHeight;
+      this.croppedFrameWidth = this.attackFrameWidth - this.cropLeft - this.cropRight;
+      this.croppedFrameHeight = this.attackFrameHeight - this.cropTop - this.cropBottom;
+      this.currentFrame = this.attackCurrentFrame ?? 0;
+      this.frameTimer = this.attackFrameTimer ?? 0;
+      this.frameOffsetX = this.attackFrameOffsetX;
+      this.frameOffsetY = this.attackFrameOffsetY;
+
+      super.draw();
+
+      this.attackCurrentFrame = this.currentFrame;
+      this.attackFrameTimer = this.frameTimer;
+      this.image = prevImage;
+      this.totalFrames = prevTotalFrames;
+      this.originalFrameWidth = prevOriginalFrameWidth;
+      this.originalFrameHeight = prevOriginalFrameHeight;
+      this.croppedFrameWidth = prevCroppedFrameWidth;
+      this.croppedFrameHeight = prevCroppedFrameHeight;
+      this.currentFrame = prevCurrentFrame;
+      this.frameTimer = prevFrameTimer;
+      this.frameOffsetX = prevFrameOffsetX;
+      this.frameOffsetY = prevFrameOffsetY;
+    } else if (this.jumpImage?.complete && this.jumpImage?.naturalWidth && this.isInAir()) {
       const prevImage = this.image;
       const prevTotalFrames = this.totalFrames;
       const prevOriginalFrameWidth = this.originalFrameWidth;
@@ -638,6 +696,19 @@ class Fighter extends Sprite {
       this.walkCurrentFrame = 0;
       this.walkFrameTimer = 0;
     }
+
+    if (this.attackImage?.complete && this.attackTotalFrames != null && this.isAttacking) {
+      this.attackFrameTimer = (this.attackFrameTimer ?? 0) + 16;
+      const attackInterval = 1000 / this.attackAnimationSpeed;
+      if (this.attackFrameTimer >= attackInterval) {
+        this.attackFrameTimer = 0;
+        const next = (this.attackCurrentFrame ?? 0) + 1;
+        this.attackCurrentFrame = Math.min(next, this.attackTotalFrames - 1);
+      }
+    } else {
+      this.attackCurrentFrame = 0;
+      this.attackFrameTimer = 0;
+    }
   }
 
   reset() {
@@ -647,6 +718,8 @@ class Fighter extends Sprite {
     this.jumpFrameTimer = 0;
     this.walkCurrentFrame = 0;
     this.walkFrameTimer = 0;
+    this.attackCurrentFrame = 0;
+    this.attackFrameTimer = 0;
   }
 }
 
@@ -732,7 +805,7 @@ const player = new Fighter({
   velocity: { x: 0, y: 0 },
   color: 'blue',
   offset: { x: 0, y: 0 },
-  width: 100,
+  width: 130,
   height: 250,
   drawScale: 1.8,
   imgSrc: 'img/Samurai/idle.png',
@@ -740,6 +813,11 @@ const player = new Fighter({
   jumpTotalFrames: 10,
   walkImgSrc: 'img/Samurai/Run.png',
   walkFrameOffsetX: -15,
+  attackImgSrc: 'img/Samurai/Attack_1.png',
+  attackTotalFrames: 6,
+  attackAnimationSpeed: 200,
+  attackFrameOffsetX: 0,
+  attackFrameOffsetY: 0,
 });
 
 const enemy = new Fighter({
@@ -747,13 +825,18 @@ const enemy = new Fighter({
   velocity: { x: 0, y: 0 },
   color: 'red',
   offset: { x: -110, y: 0 },
-  width: 100,
+  width: 130,
   height: 250,
   drawScale: 1.8,
   imgSrc: 'img/Fighter/idle.png',
   jumpImgSrc: 'img/Fighter/Jump.png',
   jumpTotalFrames: 10,
   walkImgSrc: 'img/Fighter/Run.png',
+  attackImgSrc: 'img/Fighter/Attack_1.png',
+  attackTotalFrames: 4,
+  attackAnimationSpeed: 200,
+  attackFrameOffsetX: -5,
+  attackFrameOffsetY: 0,
   frameOffsetX: -5,
   frameOffsetY: 0,
   defaultFacing: 'left',
@@ -910,13 +993,13 @@ function handlePowerupCollisions() {
 }
 
 function handleCombatCollisions() {
-  if (rectsOverlap(player, enemy, true) && player.isAttacking) {
-    player.isAttacking = false;
+  if (rectsOverlap(player, enemy, true) && player.isAttacking && !player.attackHitRegistered) {
+    player.attackHitRegistered = true;
     applyDamage(player, enemy, 'enemyHealth', 'playerScore', ui.playerScore);
   }
 
-  if (rectsOverlap(enemy, player, true) && enemy.isAttacking) {
-    enemy.isAttacking = false;
+  if (rectsOverlap(enemy, player, true) && enemy.isAttacking && !enemy.attackHitRegistered) {
+    enemy.attackHitRegistered = true;
     applyDamage(enemy, player, 'playerHealth', 'enemyScore', ui.enemyScore);
   }
 }
