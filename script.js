@@ -135,7 +135,7 @@ function updateUI() {
 // TIMER
 // -----------------------------------------------------------------------------
 
-const POWERUP_SPAWN_CHANCE = 0.1;
+const POWERUP_SPAWN_CHANCE = 0.8;
 
 function startTimer() {
   gameState.currentTime = CONFIG.game.roundTime;
@@ -251,7 +251,32 @@ function applyDamage(attacker, defender, healthKey, scoreKey, scoreElement) {
 // -----------------------------------------------------------------------------
 
 class Sprite {
-  constructor({ position, velocity, color, offset = { x: 0, y: 0 }, width, height }) {
+  constructor({
+    position,
+    velocity,
+    color,
+    offset = { x: 0, y: 0 },
+    width,
+    height,
+    imgSrc,
+    imageSrc,
+    totalFrames,
+    frameWidth,
+    frameHeight,
+    cropLeft = 0,
+    cropRight = 0,
+    cropTop = 0,
+    cropBottom = 0,
+    frameOffsetX = 0,
+    frameOffsetY = 0,
+    animationSpeed,
+    displayWidth,
+    displayHeight,
+    drawScale = 1.2,
+    fitInBox = false,
+    verticalAlign = 'bottom',
+    defaultFacing = 'right',
+  }) {
     this.position = { x: position.x, y: position.y };
     this.velocity = { x: velocity.x, y: velocity.y };
     this.width = width;
@@ -260,6 +285,12 @@ class Sprite {
     this.lastKey = '';
     this.isAttacking = false;
     this.isBlocking = false;
+    this.displayWidth = displayWidth;
+    this.displayHeight = displayHeight;
+    this.drawScale = drawScale;
+    this.fitInBox = fitInBox;
+    this.verticalAlign = verticalAlign;
+    this.defaultFacing = defaultFacing;
 
     this.attackBox = {
       position: { x: 0, y: 0 },
@@ -267,33 +298,85 @@ class Sprite {
       width: 200,
       height: 100,
     };
+
+    const src = imgSrc || imageSrc;
+    if (src) {
+      this.image = new Image();
+      this.image.src = src;
+
+      // Original frame dimensions (used for stepping - never use cropped width for frame index)
+      this.originalFrameWidth = frameWidth ?? null;
+      this.originalFrameHeight = frameHeight ?? null;
+
+      // Cropping applied per frame
+      this.cropLeft = cropLeft;
+      this.cropRight = cropRight;
+      this.cropTop = cropTop;
+      this.cropBottom = cropBottom;
+
+      // Shift crop region within frame (e.g. frameOffsetX: 10 = move visible area 10px right)
+      this.frameOffsetX = frameOffsetX;
+      this.frameOffsetY = frameOffsetY;
+
+      // Derived: offset of crop within frame, and cropped dimensions
+      this.croppedOffsetX = cropLeft;
+      this.croppedOffsetY = cropTop;
+      if (this.originalFrameWidth != null && this.originalFrameHeight != null) {
+        this.croppedFrameWidth = this.originalFrameWidth - cropLeft - cropRight;
+        this.croppedFrameHeight = this.originalFrameHeight - cropTop - cropBottom;
+      }
+
+      // Animation
+      this.totalFrames = totalFrames ?? 6;
+      this.currentFrame = 0;
+      this.frameTimer = 0;
+      this.frameInterval = animationSpeed != null ? 1000 / animationSpeed : CONFIG.animation?.frameInterval ?? 100;
+    } else {
+      this.image = null;
+    }
   }
 
   draw() {
     if (this.image?.complete && this.image?.naturalWidth) {
-      const frameWidth = this.image.naturalWidth / 6; //128
-      const frameHeight = this.image.naturalHeight;
-  
-      // Crop to center of frame (remove side padding) - adjust cropRatio as needed
-      const cropRatio = 0.3;  // 0.4 = center 40% of frame, 0.5 = center half
-      const cropWidth = frameWidth * cropRatio; //51.2
-      // Animation  
-      const frameIndex = this.currentFrame ?? 0;
-      const frameBaseX = frameIndex * frameWidth;
-      const sx = frameBaseX + (frameWidth - cropWidth) / 2; //38.4
-      // End Animation  
-      const sy = 5;
-      const sw = cropWidth;
-      const sh = frameHeight;
-  
-      // Scale to fit within box, centered (preserves aspect ratio)
-      const scale = Math.min(this.width / cropWidth, this.height / frameHeight); //1.2
-      const drawWidth = cropWidth * scale * 1.2;
-      const drawHeight = frameHeight * scale * 1.2;
-      const dx = this.position.x + (this.width - drawWidth) / 2;
-      const dy = this.position.y + this.height - drawHeight;
+      // Lazy-init frame dimensions when image loads (if not provided in constructor)
+      if (!this.originalFrameWidth) {
+        this.originalFrameWidth = Math.floor(this.image.naturalWidth / this.totalFrames);
+        this.originalFrameHeight = this.image.naturalHeight;
+        this.croppedFrameWidth = this.originalFrameWidth - this.cropLeft - this.cropRight;
+        this.croppedFrameHeight = this.originalFrameHeight - this.cropTop - this.cropBottom;
+      }
 
-      const facingLeft = this.lastKey === 'a' || this.lastKey === 'ArrowLeft';
+      // Step by ORIGINAL frame width - never use cropped width for frame indexing
+      const frameBaseX = this.currentFrame * this.originalFrameWidth;
+      const frameBaseY = 0;
+
+      // Cropped source rect within current frame (+ frameOffset shifts the visible area)
+      const sx = frameBaseX + this.croppedOffsetX + (this.frameOffsetX ?? 0);
+      const sy = frameBaseY + this.croppedOffsetY + (this.frameOffsetY ?? 0);
+      const sw = this.croppedFrameWidth;
+      const sh = this.croppedFrameHeight;
+
+      const boxWidth = this.displayWidth ?? this.width;
+      const boxHeight = this.displayHeight ?? this.height;
+
+      const scale = Math.min(boxWidth / sw, boxHeight / sh);
+      const drawScale = this.drawScale ?? 1.2;
+      let drawWidth = sw * scale * drawScale;
+      let drawHeight = sh * scale * drawScale;
+      if (this.fitInBox) {
+        const maxScale = Math.min(boxWidth / drawWidth, boxHeight / drawHeight, 1);
+        if (maxScale < 1) {
+          drawWidth *= maxScale;
+          drawHeight *= maxScale;
+        }
+      }
+      const dx = this.position.x + (boxWidth - drawWidth) / 2;
+      const dy = this.verticalAlign === 'center'
+        ? this.position.y + (boxHeight - drawHeight) / 2
+        : this.position.y + boxHeight - drawHeight;
+
+      const facingLeft = this.lastKey === 'a' || this.lastKey === 'ArrowLeft' ||
+        (this.lastKey === '' && this.defaultFacing === 'left');
       ctx.save();
 
       if (facingLeft) {
@@ -303,18 +386,17 @@ class Sprite {
         ctx.scale(-1, 1);
         ctx.translate(-centerX, -centerY);
       }
-  
+
       ctx.drawImage(this.image, sx, sy, sw, sh, dx, dy, drawWidth, drawHeight);
       ctx.restore();
     } else {
       ctx.fillStyle = this.color;
       ctx.fillRect(this.position.x, this.position.y, this.width, this.height);
     }
-  
 
-  ctx.strokeStyle = 'white';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(this.position.x, this.position.y, this.width, this.height);
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(this.position.x, this.position.y, this.width, this.height);
 
     if (this.isAttacking) {
       ctx.fillStyle = 'green';
@@ -347,15 +429,14 @@ class Sprite {
     if (this.position.x <= 0 || this.position.x + this.width >= canvas.width) {
       this.velocity.x = 0;
     }
-    // Animation
-    if (this.image?.complete) {
-      this.frameTimer += 16;  // ~60fps
+
+    if (this.image?.complete && this.totalFrames != null) {
+      this.frameTimer = (this.frameTimer ?? 0) + 16;
       if (this.frameTimer >= this.frameInterval) {
         this.frameTimer = 0;
-        this.currentFrame = (this.currentFrame + 1) % this.frameCount;
+        this.currentFrame = ((this.currentFrame ?? 0) + 1) % this.totalFrames;
       }
     }
-    // End Animation
     updateUI();
   }
 
@@ -375,22 +456,28 @@ class Sprite {
   }
 }
 
-// Fighter extends Sprite with proper attackBox offset reset
+// -----------------------------------------------------------------------------
+// FIGHTER - Player/Enemy with attack box
+// Per-instance crop/animation overrides supported
+// -----------------------------------------------------------------------------
+
 class Fighter extends Sprite {
+  static defaultImageSettings = {
+    totalFrames: 6,
+    frameWidth: 128,
+    frameHeight: 128,
+    cropLeft: 30,
+    cropRight: 25,
+    cropTop: 10,
+    cropBottom: 0,
+    frameOffsetX: 0,
+    frameOffsetY: 0,
+    animationSpeed: 6,
+  };
+
   constructor(props) {
-    super(props);
-    // Animation
-    this.currentFrame = 0;
-    this.frameTimer = 0;
-    this.frameInterval = CONFIG.animation?.frameInterval ?? 100;
-    this.frameCount = CONFIG.animation?.frameCount ?? 6;
-    // End Animation
-
+    super({ ...Fighter.defaultImageSettings, ...props });
     this.defaultAttackOffsetX = props.offset?.x ?? 0;
-
-    // Load sptine image
-    this.image = new Image();
-    this.image.src = props.imgSrc;
   }
 
   reset() {
@@ -400,26 +487,81 @@ class Fighter extends Sprite {
 }
 
 // -----------------------------------------------------------------------------
+// BOOST - Powerup items (heal, rocket pack)
+// Per-instance crop/animation overrides supported
+// -----------------------------------------------------------------------------
+
+class Boost extends Sprite {
+  static defaultImageSettings = {
+    totalFrames: 8,
+    frameWidth: 128,
+    frameHeight: 32,
+    cropLeft: 0,
+    cropRight: 0,
+    cropTop: 0,
+    cropBottom: 0,
+    frameOffsetX: 0,
+    frameOffsetY: -10,
+    animationSpeed: 8,
+    drawScale: 3,
+    fitInBox: true,
+    verticalAlign: 'center',
+  };
+
+  constructor(props) {
+    super({ ...Boost.defaultImageSettings, ...props });
+  }
+
+  update() {
+    this.draw();
+    // Boost only advances animation, no physics
+    if (this.image?.complete && this.totalFrames != null) {
+      this.frameTimer = (this.frameTimer ?? 0) + 16;
+      if (this.frameTimer >= this.frameInterval) {
+        this.frameTimer = 0;
+        this.currentFrame = ((this.currentFrame ?? 0) + 1) % this.totalFrames;
+      }
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
 // GAME ENTITIES
 // -----------------------------------------------------------------------------
 
-const rocketPack = new Sprite({
-  position: { x: 0, y: canvas.height - 70 },
+// No image - uses color fallback
+const rocketPack = new Boost({
+  position: { x: 0, y: canvas.height - 50 },
   velocity: { x: 0, y: 0 },
   color: 'yellow',
-  width: 60,
-  height: 70,
+  width: 50,
+  height: 50,
+  displayWidth: 50,
+  displayHeight: 50,
+  imgSrc: 'img/rocket-jump/idle.png',
+  totalFrames: 8,
+  frameWidth: 128,
+  frameHeight: 50,
+  drawScale: 3,
+  fitInBox: false,
 });
 rocketPack.visible = false;
 
-const healBox = new Sprite({
+const healBox = new Boost({
   position: { x: 0, y: canvas.height - 50 },
   velocity: { x: 0, y: 0 },
   color: 'green',
   width: 50,
   height: 50,
+  displayWidth: 50,
+  displayHeight: 50,
+  imgSrc: 'img/healbox/idle.png',
+  totalFrames: 8,
+  frameWidth: 128,
+  frameHeight: 50,
+  drawScale: 3,
+  fitInBox: false,
 });
-healBox.visible = false;
 
 const player = new Fighter({
   position: { x: 100, y: 0 },
@@ -428,7 +570,9 @@ const player = new Fighter({
   offset: { x: 0, y: 0 },
   width: 100,
   height: 250,
-  imgSrc: 'img/Samurai/idle.png'
+  drawScale: 1.8,
+  imgSrc: 'img/Samurai/idle.png',
+  // Uses Fighter.defaultImageSettings; override per-instance as needed
 });
 
 const enemy = new Fighter({
@@ -438,7 +582,11 @@ const enemy = new Fighter({
   offset: { x: -110, y: 0 },
   width: 100,
   height: 250,
-  imgSrc: 'img/Fighter/idle.png'
+  drawScale: 1.8,
+  imgSrc: 'img/Fighter/idle.png',
+  frameOffsetX: -5,
+  frameOffsetY: 0,
+  defaultFacing: 'left',
 });
 
 // -----------------------------------------------------------------------------
@@ -618,8 +766,8 @@ function animate() {
   player.update();
   enemy.update();
 
-  if (rocketPack.visible) rocketPack.draw();
-  if (healBox.visible) healBox.draw();
+  if (rocketPack.visible) rocketPack.update();
+  if (healBox.visible) healBox.update();
 
   handlePlayerInput();
   handlePowerupCollisions();
