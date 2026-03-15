@@ -499,11 +499,154 @@ class Fighter extends Sprite {
   constructor(props) {
     super({ ...Fighter.defaultImageSettings, ...props });
     this.defaultAttackOffsetX = props.offset?.x ?? 0;
+
+    if (props.jumpImgSrc) {
+      this.jumpImage = new Image();
+      this.jumpImage.src = props.jumpImgSrc;
+      this.jumpTotalFrames = props.jumpTotalFrames ?? 10;
+      this.jumpFrameWidth = props.jumpFrameWidth ?? props.frameWidth ?? 128;
+      this.jumpFrameHeight = props.jumpFrameHeight ?? props.frameHeight ?? 128;
+      this.jumpAnimationSpeed = props.jumpAnimationSpeed ?? 11;
+      this.jumpCurrentFrame = 0;
+      this.jumpFrameTimer = 0;
+    } else {
+      this.jumpImage = null;
+    }
+
+    if (props.walkImgSrc) {
+      this.walkImage = new Image();
+      this.walkImage.src = props.walkImgSrc;
+      this.walkTotalFrames = props.walkTotalFrames ?? 8;
+      this.walkFrameWidth = props.walkFrameWidth ?? props.frameWidth ?? 128;
+      this.walkFrameHeight = props.walkFrameHeight ?? props.frameHeight ?? 128;
+      this.walkAnimationSpeed = props.walkAnimationSpeed ?? 10;
+      this.walkFrameOffsetX = props.walkFrameOffsetX ?? props.frameOffsetX ?? 0;
+      this.walkFrameOffsetY = props.walkFrameOffsetY ?? props.frameOffsetY ?? 0;
+      this.walkCurrentFrame = 0;
+      this.walkFrameTimer = 0;
+    } else {
+      this.walkImage = null;
+    }
+  }
+
+  isWalking() {
+    return !this.isInAir() && this.velocity.x !== 0;
+  }
+
+  isInAir() {
+    return this.velocity.y !== 0 || this.position.y + this.height < floorY();
+  }
+
+  draw() {
+    if (this.jumpImage?.complete && this.jumpImage?.naturalWidth && this.isInAir()) {
+      const prevImage = this.image;
+      const prevTotalFrames = this.totalFrames;
+      const prevOriginalFrameWidth = this.originalFrameWidth;
+      const prevOriginalFrameHeight = this.originalFrameHeight;
+      const prevCroppedFrameWidth = this.croppedFrameWidth;
+      const prevCroppedFrameHeight = this.croppedFrameHeight;
+      const prevCurrentFrame = this.currentFrame;
+      const prevFrameTimer = this.frameTimer;
+
+      this.image = this.jumpImage;
+      this.totalFrames = this.jumpTotalFrames;
+      this.originalFrameWidth = this.jumpFrameWidth;
+      this.originalFrameHeight = this.jumpFrameHeight;
+      this.croppedFrameWidth = this.jumpFrameWidth - this.cropLeft - this.cropRight;
+      this.croppedFrameHeight = this.jumpFrameHeight - this.cropTop - this.cropBottom;
+      this.currentFrame = this.jumpCurrentFrame ?? 0;
+      this.frameTimer = this.jumpFrameTimer ?? 0;
+
+      super.draw();
+
+      this.jumpCurrentFrame = this.currentFrame;
+      this.jumpFrameTimer = this.frameTimer;
+      this.image = prevImage;
+      this.totalFrames = prevTotalFrames;
+      this.originalFrameWidth = prevOriginalFrameWidth;
+      this.originalFrameHeight = prevOriginalFrameHeight;
+      this.croppedFrameWidth = prevCroppedFrameWidth;
+      this.croppedFrameHeight = prevCroppedFrameHeight;
+      this.currentFrame = prevCurrentFrame;
+      this.frameTimer = prevFrameTimer;
+    } else if (this.walkImage?.complete && this.walkImage?.naturalWidth && this.isWalking()) {
+      const prevImage = this.image;
+      const prevTotalFrames = this.totalFrames;
+      const prevOriginalFrameWidth = this.originalFrameWidth;
+      const prevOriginalFrameHeight = this.originalFrameHeight;
+      const prevCroppedFrameWidth = this.croppedFrameWidth;
+      const prevCroppedFrameHeight = this.croppedFrameHeight;
+      const prevCurrentFrame = this.currentFrame;
+      const prevFrameTimer = this.frameTimer;
+      const prevFrameOffsetX = this.frameOffsetX;
+      const prevFrameOffsetY = this.frameOffsetY;
+
+      this.image = this.walkImage;
+      this.totalFrames = this.walkTotalFrames;
+      this.originalFrameWidth = this.walkFrameWidth;
+      this.originalFrameHeight = this.walkFrameHeight;
+      this.croppedFrameWidth = this.walkFrameWidth - this.cropLeft - this.cropRight;
+      this.croppedFrameHeight = this.walkFrameHeight - this.cropTop - this.cropBottom;
+      this.currentFrame = this.walkCurrentFrame ?? 0;
+      this.frameTimer = this.walkFrameTimer ?? 0;
+      this.frameOffsetX = this.walkFrameOffsetX;
+      this.frameOffsetY = this.walkFrameOffsetY;
+
+      super.draw();
+
+      this.walkCurrentFrame = this.currentFrame;
+      this.walkFrameTimer = this.frameTimer;
+      this.image = prevImage;
+      this.totalFrames = prevTotalFrames;
+      this.originalFrameWidth = prevOriginalFrameWidth;
+      this.originalFrameHeight = prevOriginalFrameHeight;
+      this.croppedFrameWidth = prevCroppedFrameWidth;
+      this.croppedFrameHeight = prevCroppedFrameHeight;
+      this.currentFrame = prevCurrentFrame;
+      this.frameTimer = prevFrameTimer;
+      this.frameOffsetX = prevFrameOffsetX;
+      this.frameOffsetY = prevFrameOffsetY;
+    } else {
+      super.draw();
+    }
+  }
+
+  update() {
+    super.update();
+
+    if (this.jumpImage?.complete && this.jumpTotalFrames != null && this.isInAir()) {
+      this.jumpFrameTimer = (this.jumpFrameTimer ?? 0) + 16;
+      const jumpInterval = 1000 / this.jumpAnimationSpeed;
+      if (this.jumpFrameTimer >= jumpInterval) {
+        this.jumpFrameTimer = 0;
+        const next = (this.jumpCurrentFrame ?? 0) + 1;
+        this.jumpCurrentFrame = Math.min(next, this.jumpTotalFrames - 1);
+      }
+    } else {
+      this.jumpCurrentFrame = 0;
+      this.jumpFrameTimer = 0;
+    }
+
+    if (this.walkImage?.complete && this.walkTotalFrames != null && this.isWalking()) {
+      this.walkFrameTimer = (this.walkFrameTimer ?? 0) + 16;
+      const walkInterval = 1000 / this.walkAnimationSpeed;
+      if (this.walkFrameTimer >= walkInterval) {
+        this.walkFrameTimer = 0;
+        this.walkCurrentFrame = ((this.walkCurrentFrame ?? 0) + 1) % this.walkTotalFrames;
+      }
+    } else {
+      this.walkCurrentFrame = 0;
+      this.walkFrameTimer = 0;
+    }
   }
 
   reset() {
     super.reset();
     this.attackBox.offset.x = this.defaultAttackOffsetX;
+    this.jumpCurrentFrame = 0;
+    this.jumpFrameTimer = 0;
+    this.walkCurrentFrame = 0;
+    this.walkFrameTimer = 0;
   }
 }
 
@@ -593,7 +736,10 @@ const player = new Fighter({
   height: 250,
   drawScale: 1.8,
   imgSrc: 'img/Samurai/idle.png',
-  // Uses Fighter.defaultImageSettings; override per-instance as needed
+  jumpImgSrc: 'img/Samurai/Jump.png',
+  jumpTotalFrames: 10,
+  walkImgSrc: 'img/Samurai/Run.png',
+  walkFrameOffsetX: -15,
 });
 
 const enemy = new Fighter({
@@ -605,6 +751,9 @@ const enemy = new Fighter({
   height: 250,
   drawScale: 1.8,
   imgSrc: 'img/Fighter/idle.png',
+  jumpImgSrc: 'img/Fighter/Jump.png',
+  jumpTotalFrames: 10,
+  walkImgSrc: 'img/Fighter/Run.png',
   frameOffsetX: -5,
   frameOffsetY: 0,
   defaultFacing: 'left',
